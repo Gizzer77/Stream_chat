@@ -189,6 +189,39 @@ async function askDeepSeek(apiKey, question, askedBy, platform) {
   return { answer, sources: [] }
 }
 
+// ── OpenRouter (free models) ──────────────────────────────────────────────────
+
+async function askOpenRouter(apiKey, question, askedBy, platform) {
+  const userMsg = `${askedBy} on ${platform} asked: "${question}"`
+
+  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://marketbubble.live',
+      'X-Title': 'Market Bubble C3PO',
+    },
+    body: JSON.stringify({
+      model: 'meta-llama/llama-3.3-70b-instruct:free',
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user',   content: userMsg },
+      ],
+      max_tokens: 600,
+    }),
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.error?.message || `OpenRouter error ${res.status}`)
+  }
+
+  const data   = await res.json()
+  const answer = data.choices?.[0]?.message?.content || "Couldn't get an answer."
+  return { answer, sources: [] }
+}
+
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
@@ -213,6 +246,8 @@ export default async function handler(req, res) {
       result = await askQwen(apiKey, question, askedBy, platform)
     } else if (provider === 'deepseek') {
       result = await askDeepSeek(apiKey, question, askedBy, platform)
+    } else if (provider === 'openrouter') {
+      result = await askOpenRouter(apiKey, question, askedBy, platform)
     } else {
       result = await askClaude(apiKey, question, askedBy, platform)
     }

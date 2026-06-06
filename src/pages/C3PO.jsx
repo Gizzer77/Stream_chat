@@ -56,6 +56,13 @@ function SettingsModal({ apiKey, setApiKey, provider, setProvider, c3poMode, set
       hint: 'platform.deepseek.com → API Keys',
       hintUrl: 'https://platform.deepseek.com',
     },
+    openrouter: {
+      label: 'OpenRouter (Free)',
+      color: '#34d399',
+      placeholder: 'sk-or-v1-...',
+      hint: 'openrouter.ai/keys — free models, no cost',
+      hintUrl: 'https://openrouter.ai/keys',
+    },
   }
   const meta = providerMeta[draftProvider]
 
