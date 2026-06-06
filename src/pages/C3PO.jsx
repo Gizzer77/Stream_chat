@@ -49,6 +49,13 @@ function SettingsModal({ apiKey, setApiKey, provider, setProvider, c3poMode, set
       hint: 'dashscope.aliyuncs.com → API Keys',
       hintUrl: 'https://dashscope.aliyuncs.com',
     },
+    deepseek: {
+      label: 'DeepSeek',
+      color: '#f97316',
+      placeholder: 'sk-...',
+      hint: 'platform.deepseek.com → API Keys',
+      hintUrl: 'https://platform.deepseek.com',
+    },
   }
   const meta = providerMeta[draftProvider]
 

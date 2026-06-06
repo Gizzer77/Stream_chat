@@ -157,6 +157,38 @@ async function askQwen(apiKey, question, askedBy, platform) {
   return { answer, sources: sources.slice(0, 3) }
 }
 
+// ── DeepSeek ──────────────────────────────────────────────────────────────────
+
+async function askDeepSeek(apiKey, question, askedBy, platform) {
+  const userMsg = `${askedBy} on ${platform} asked: "${question}"`
+
+  const res = await fetch('https://api.deepseek.com/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'deepseek-chat',
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user',   content: userMsg },
+      ],
+      max_tokens: 600,
+      stream: false,
+    }),
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.error?.message || `DeepSeek error ${res.status}`)
+  }
+
+  const data   = await res.json()
+  const answer = data.choices?.[0]?.message?.content || "Couldn't get an answer."
+  return { answer, sources: [] }
+}
+
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
@@ -179,6 +211,8 @@ export default async function handler(req, res) {
       result = await askGemini(apiKey, question, askedBy, platform)
     } else if (provider === 'qwen') {
       result = await askQwen(apiKey, question, askedBy, platform)
+    } else if (provider === 'deepseek') {
+      result = await askDeepSeek(apiKey, question, askedBy, platform)
     } else {
       result = await askClaude(apiKey, question, askedBy, platform)
     }
