@@ -20,6 +20,72 @@ function extractQuestion(text) {
   return ''
 }
 
+// ── Tutorial Modal ────────────────────────────────────────────────────────────
+
+function TutorialModal({ onClose }) {
+  const steps = [
+    { icon:'⚙️', title:'Set your API key', body:'Tap the ⚙ settings button and pick an AI provider. Paste your API key — it stays in your browser, never sent anywhere else. OpenRouter has a free tier if you don\'t have a key yet.' },
+    { icon:'🎙', title:'Say the wake word', body:'Press Start, then say "Hey C3PO" followed by your question out loud — like "Hey C3PO, what\'s the capital of France?" C3PO will hear it through your mic and look it up.' },
+    { icon:'⌨️', title:'Or type a question', body:'You can also type any question in the box at the bottom and hit Ask. Works the same way, no mic needed.' },
+    { icon:'🌐', title:'Universal vs Separate mode', body:'In Universal mode, both people in the room share one C3PO feed — when one person asks a question, both screens show the answer. In Separate mode, each person has their own private C3PO.' },
+    { icon:'🔊', title:'Auto read-aloud', body:'Enable Auto Read-Aloud in settings and C3PO will speak the answer back to you using your browser\'s text-to-speech. Great for keeping eyes on stream.' },
+  ]
+  return (
+    <div className="fade-in" style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,0.8)', backdropFilter:'blur(5px)',
+      display:'flex', alignItems:'center', justifyContent:'center', zIndex:300, padding:20,
+    }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="pop-in" style={{
+        background:'#16161f', border:'1px solid rgba(255,215,0,0.2)',
+        borderRadius:20, padding:28, width:480, maxWidth:'100%',
+        boxShadow:'0 24px 80px rgba(0,0,0,0.7)',
+        maxHeight:'90vh', display:'flex', flexDirection:'column',
+      }}>
+        {/* Header */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:22, flexShrink:0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <span style={{ fontSize:22 }}>🤖</span>
+            <div>
+              <div style={{ fontWeight:900, fontSize:17, color:'var(--gold)' }}>How to use C3PO</div>
+              <div style={{ fontSize:11, color:'#44445a' }}>Your live stream AI assistant</div>
+            </div>
+          </div>
+          <button onClick={onClose} style={{
+            background:'rgba(255,255,255,0.06)', border:'none', borderRadius:8,
+            color:'#8888aa', fontSize:18, cursor:'pointer', padding:'2px 8px',
+          }}>✕</button>
+        </div>
+
+        {/* Steps */}
+        <div style={{ overflowY:'auto', display:'flex', flexDirection:'column', gap:12, paddingRight:4 }}>
+          {steps.map((s, i) => (
+            <div key={i} style={{
+              display:'flex', gap:14, padding:'14px 16px', borderRadius:12,
+              background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)',
+            }}>
+              <div style={{
+                width:38, height:38, borderRadius:10, flexShrink:0,
+                background:'rgba(255,215,0,0.1)', border:'1px solid rgba(255,215,0,0.2)',
+                display:'flex', alignItems:'center', justifyContent:'center', fontSize:18,
+              }}>{s.icon}</div>
+              <div>
+                <div style={{ fontWeight:700, fontSize:14, color:'#f0f0f5', marginBottom:5 }}>{s.title}</div>
+                <div style={{ fontSize:13, color:'#8888aa', lineHeight:1.6 }}>{s.body}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <button onClick={onClose} style={{
+          marginTop:20, width:'100%', background:'linear-gradient(135deg,rgba(255,215,0,0.15),rgba(255,215,0,0.08))',
+          color:'var(--gold)', border:'1px solid rgba(255,215,0,0.3)',
+          borderRadius:10, padding:'11px', fontSize:14, fontWeight:700, cursor:'pointer', flexShrink:0,
+        }}>Got it — let's go! ⚡</button>
+      </div>
+    </div>
+  )
+}
+
 // ── Settings Modal ────────────────────────────────────────────────────────────
 
 function SettingsModal({ apiKey, setApiKey, provider, setProvider, c3poMode, setC3poMode, autoSpeak, setAutoSpeak, onClose }) {
@@ -98,22 +164,30 @@ function SettingsModal({ apiKey, setApiKey, provider, setProvider, c3poMode, set
           }}>✕</button>
         </div>
 
-        {/* Provider toggle */}
+        {/* Provider selector — scrollable list */}
         <div style={{ marginBottom:20 }}>
           <label style={labelStyle}>AI Provider</label>
-          <div style={{ display:'flex', gap:8 }}>
-            {Object.entries(providerMeta).map(([key, m]) => (
-              <button key={key} onClick={() => { setDraftProvider(key); setDraftKey('') }} style={{
-                flex:1, padding:'10px 12px', borderRadius:10, cursor:'pointer',
-                fontWeight:700, fontSize:13,
-                background: draftProvider === key ? `${m.color}18` : 'rgba(255,255,255,0.04)',
-                color:      draftProvider === key ? m.color : '#8888aa',
-                border:    `1px solid ${draftProvider === key ? m.color + '55' : 'rgba(255,255,255,0.08)'}`,
-                transition:'all .15s',
-              }}>
-                {key === 'anthropic' ? '🟣' : '🟢'} {m.label}
-              </button>
-            ))}
+          <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:200, overflowY:'auto', paddingRight:4 }}>
+            {Object.entries(providerMeta).map(([key, m]) => {
+              const icons = { anthropic:'🟣', gemini:'🟢', qwen:'🔵', deepseek:'🟠', openrouter:'✳️' }
+              const selected = draftProvider === key
+              return (
+                <button key={key} onClick={() => { setDraftProvider(key); setDraftKey('') }} style={{
+                  display:'flex', alignItems:'center', gap:12,
+                  padding:'10px 14px', borderRadius:10, cursor:'pointer', textAlign:'left',
+                  background: selected ? `${m.color}14` : 'rgba(255,255,255,0.03)',
+                  border: `1px solid ${selected ? m.color + '55' : 'rgba(255,255,255,0.07)'}`,
+                  transition:'all .15s', flexShrink:0,
+                }}>
+                  <span style={{ fontSize:18, flexShrink:0 }}>{icons[key]}</span>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight:700, color: selected ? m.color : '#c0c0d0' }}>{m.label}</div>
+                    <div style={{ fontSize:11, color:'#44445a', marginTop:1 }}>{m.hint}</div>
+                  </div>
+                  {selected && <span style={{ color: m.color, fontSize:16, flexShrink:0 }}>✓</span>}
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -304,7 +378,8 @@ export default function C3PO() {
   const [provider,      setProvider]      = useState(() => localStorage.getItem('c3po_provider') || 'anthropic')
   const [c3poMode,      setC3poMode]      = useState(() => localStorage.getItem('c3po_mode') || 'universal')
   const [autoSpeak,     setAutoSpeak]     = useState(true)
-  const [showSettings,  setShowSettings]  = useState(false)
+  const [showSettings,  setShowSettings]  = useState(() => !localStorage.getItem('c3po_api_key'))
+  const [showTutorial,  setShowTutorial]  = useState(false)
   const [manualQ,       setManualQ]       = useState('')
   const [supported,     setSupported]     = useState(true)
   const [micError,      setMicError]      = useState('')
@@ -491,6 +566,9 @@ export default function C3PO() {
       fontFamily:"'Inter','Segoe UI',system-ui,sans-serif", overflow:'hidden',
     }}>
 
+      {/* Tutorial modal */}
+      {showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}
+
       {/* Settings modal */}
       {showSettings && (
         <SettingsModal
@@ -545,6 +623,7 @@ export default function C3PO() {
             {listening ? '⏹ Stop' : '🎙 Start'}
           </button>
 
+          <button onClick={() => setShowTutorial(true)} style={{ ...hBtn, color:'var(--gold)', border:'1px solid rgba(255,215,0,0.25)' }} title="How to use C3PO">?</button>
           <button onClick={() => setShowSettings(true)} style={hBtn} title="Settings">⚙</button>
           <button onClick={() => navigate('/')} style={hBtn} title="Back to setup">←</button>
         </div>

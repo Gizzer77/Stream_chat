@@ -83,6 +83,70 @@ function Avatar({ name, color, size=30 }) {
   )
 }
 
+// ── Tutorial Modal ────────────────────────────────────────────────────────────
+
+function RoomTutorialModal({ onClose }) {
+  const steps = [
+    { icon:'🎙', title:'Set up your room', body:'On the setup page, enter each streamer\'s name and their Twitch/Kick username. A room code is generated automatically. Share the link with your co-streamer so you both see the same combined chat.' },
+    { icon:'🔗', title:'Share the room', body:'Click the Share button to copy your room link. Anyone with the link can join and see all the chats combined. You\'ll see who\'s connected in the top row.' },
+    { icon:'🔒', title:'Lock the room', body:'Once both streamers are in, hit the Lock button to stop anyone else from joining. Locked rooms show a gate page to late arrivals.' },
+    { icon:'🤖', title:'C3PO AI assistant', body:'Click the C3PO button to open the AI assistant in a popup. It listens to your mic for the wake word "Hey C3PO" followed by a question — like "Hey C3PO, who won the game last night?" It searches the web and answers in seconds.' },
+    { icon:'⚙️', title:'Room settings', body:'The ⚙ gear button lets you change your display name, view streamer channels, and toggle the room lock — all without leaving the chat view.' },
+  ]
+  return (
+    <div className="fade-in" style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,0.8)', backdropFilter:'blur(5px)',
+      display:'flex', alignItems:'center', justifyContent:'center', zIndex:400, padding:20,
+    }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="pop-in" style={{
+        background:'var(--surface)', border:'1px solid rgba(145,71,255,0.25)',
+        borderRadius:20, padding:28, width:480, maxWidth:'100%',
+        boxShadow:'0 24px 80px rgba(0,0,0,0.7)',
+        maxHeight:'90vh', display:'flex', flexDirection:'column',
+      }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:22, flexShrink:0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <span style={{ fontSize:22 }}>📖</span>
+            <div>
+              <div style={{ fontWeight:900, fontSize:17, color:'var(--text)' }}>How to use Market Bubble</div>
+              <div style={{ fontSize:11, color:'var(--dim)' }}>Chat aggregator + AI assistant</div>
+            </div>
+          </div>
+          <button onClick={onClose} style={{
+            background:'rgba(255,255,255,0.06)', border:'none', borderRadius:8,
+            color:'var(--muted)', fontSize:18, cursor:'pointer', padding:'2px 8px',
+          }}>✕</button>
+        </div>
+
+        <div style={{ overflowY:'auto', display:'flex', flexDirection:'column', gap:10, paddingRight:4 }}>
+          {steps.map((s, i) => (
+            <div key={i} style={{
+              display:'flex', gap:14, padding:'13px 15px', borderRadius:12,
+              background:'rgba(255,255,255,0.03)', border:'1px solid var(--border)',
+            }}>
+              <div style={{
+                width:38, height:38, borderRadius:10, flexShrink:0,
+                background:'rgba(145,71,255,0.1)', border:'1px solid rgba(145,71,255,0.2)',
+                display:'flex', alignItems:'center', justifyContent:'center', fontSize:18,
+              }}>{s.icon}</div>
+              <div>
+                <div style={{ fontWeight:700, fontSize:14, color:'var(--text)', marginBottom:4 }}>{s.title}</div>
+                <div style={{ fontSize:13, color:'var(--muted)', lineHeight:1.6 }}>{s.body}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <button onClick={onClose} style={{
+          marginTop:18, width:'100%', background:'linear-gradient(135deg,#9147ff,#6441a5)',
+          color:'#fff', border:'none', borderRadius:10, padding:'11px',
+          fontSize:14, fontWeight:700, cursor:'pointer', flexShrink:0,
+        }}>Got it!</button>
+      </div>
+    </div>
+  )
+}
+
 // ── Name prompt modal ─────────────────────────────────────────────────────────
 
 function NameModal({ streamers, onConfirm }) {
@@ -335,6 +399,7 @@ export default function Room() {
   const [showName,    setShowName]    = useState(!localStorage.getItem('sc_my_name'))
   const [lockLoading,      setLockLoading]      = useState(false)
   const [showRoomSettings, setShowRoomSettings] = useState(false)
+  const [showTutorial,     setShowTutorial]     = useState(false)
 
   const chatRef  = useRef(null)
   const hbRef    = useRef(null)
@@ -472,6 +537,9 @@ export default function Room() {
       {/* Name modal */}
       {showName && <NameModal streamers={streamers} onConfirm={handleNameConfirm} />}
 
+      {/* Tutorial modal */}
+      {showTutorial && <RoomTutorialModal onClose={() => setShowTutorial(false)} />}
+
       {/* Room settings modal */}
       {showRoomSettings && (
         <RoomSettingsModal
@@ -562,6 +630,13 @@ export default function Room() {
             }} title="Copy invite link">
               {copied ? '✓ Copied' : '🔗 Share'}
             </button>
+
+            {/* Tutorial */}
+            <button onClick={() => setShowTutorial(true)} style={{
+              background:'rgba(145,71,255,0.08)', color:'#9147ff',
+              border:'1px solid rgba(145,71,255,0.25)', borderRadius:10,
+              padding:'9px 13px', fontSize:14, fontWeight:800, cursor:'pointer',
+            }} title="How to use Market Bubble">?</button>
 
             {/* Settings gear */}
             <button onClick={() => setShowRoomSettings(true)} style={{
