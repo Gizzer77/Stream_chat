@@ -42,6 +42,13 @@ function SettingsModal({ apiKey, setApiKey, provider, setProvider, c3poMode, set
       hint: 'aistudio.google.com → Get API key',
       hintUrl: 'https://aistudio.google.com',
     },
+    qwen: {
+      label: 'Qwen (Alibaba)',
+      color: '#60a5fa',
+      placeholder: 'sk-...',
+      hint: 'dashscope.aliyuncs.com → API Keys',
+      hintUrl: 'https://dashscope.aliyuncs.com',
+    },
   }
   const meta = providerMeta[draftProvider]
 

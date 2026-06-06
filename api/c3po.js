@@ -108,6 +108,55 @@ async function askGemini(apiKey, question, askedBy, platform) {
   return { answer, sources }
 }
 
+// ── Qwen (Alibaba DashScope) ──────────────────────────────────────────────────
+
+async function askQwen(apiKey, question, askedBy, platform) {
+  const userMsg = `${askedBy} on ${platform} asked: "${question}"`
+
+  const res = await fetch(
+    'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions',
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'qwen-plus',
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user',   content: userMsg },
+        ],
+        tools: [{ type: 'web_search', web_search: { search_result: true } }],
+        stream: false,
+      }),
+    }
+  )
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.error?.message || `Qwen error ${res.status}`)
+  }
+
+  const data    = await res.json()
+  const message = data.choices?.[0]?.message
+  const answer  = message?.content || "Couldn't get an answer."
+
+  // Extract sources from search results embedded in tool calls / content
+  const sources = []
+  const toolCalls = message?.tool_calls || []
+  for (const tc of toolCalls) {
+    try {
+      const results = JSON.parse(tc.function?.arguments || '{}')?.results || []
+      for (const r of results) {
+        if (r.url) sources.push({ url: r.url, title: r.title || r.url })
+      }
+    } catch (_) {}
+  }
+
+  return { answer, sources: sources.slice(0, 3) }
+}
+
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
@@ -128,6 +177,8 @@ export default async function handler(req, res) {
     let result
     if (provider === 'gemini') {
       result = await askGemini(apiKey, question, askedBy, platform)
+    } else if (provider === 'qwen') {
+      result = await askQwen(apiKey, question, askedBy, platform)
     } else {
       result = await askClaude(apiKey, question, askedBy, platform)
     }
