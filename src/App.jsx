@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { Analytics } from '@vercel/analytics/react'
 import Setup from './pages/Setup.jsx'
 import Room  from './pages/Room.jsx'
 import C3PO  from './pages/C3PO.jsx'
@@ -75,5 +76,10 @@ function AppShell() {
 }
 
 export default function App() {
-  return <AppShell />
+  return (
+    <>
+      <AppShell />
+      <Analytics />
+    </>
+  )
 }
