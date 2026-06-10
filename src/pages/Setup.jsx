@@ -285,11 +285,10 @@ export default function Setup() {
     const pendingTwitch = localStorage.getItem('twitch_pending_token')
     if (pendingTwitch) {
       localStorage.removeItem('twitch_pending_token')
-      // Save token immediately so auth isn't lost if username lookup fails
       localStorage.setItem('twitch_token', pendingTwitch)
-      const cid = localStorage.getItem('twitch_client_id') || (typeof import_meta_env !== 'undefined' ? '' : (window.__VITE_TWITCH_CLIENT_ID__ || ''))
-      const envCid = localStorage.getItem('twitch_client_id') || ''
-      fetchTwitchUser(pendingTwitch, envCid).then(username => {
+      // Try to get username; fall back to 'connected' so auth is never silently lost
+      const cid = ENV.twitchClientId || localStorage.getItem('twitch_client_id') || ''
+      fetchTwitchUser(pendingTwitch, cid).then(username => {
         const u = username || localStorage.getItem('twitch_username') || 'connected'
         localStorage.setItem('twitch_username', u)
         setMyProfile(p => ({ ...p, twitchUsername: u }))
@@ -379,15 +378,21 @@ export default function Setup() {
     if (!cid) { alert('Add VITE_X_CLIENT_ID to your .env.local file'); return }
     const verifier  = genCodeVerifier()
     const challenge = await genCodeChallenge(verifier)
-    // Store in BOTH so the redirect-flow exchange works (sessionStorage doesn't survive navigation)
     sessionStorage.setItem('x_code_verifier', verifier)
     localStorage.setItem('x_code_verifier_tmp', verifier)
-    // Also save current page state so we can restore after redirect
-    localStorage.setItem('x_oauth_return', window.location.href.split('#')[0])
     const redirectUri = `${window.location.origin}/oauth/x`
     const url = 'https://twitter.com/i/oauth2/authorize?'+new URLSearchParams({ response_type:'code', client_id:cid, redirect_uri:redirectUri, scope:'tweet.write users.read offline.access', state:Math.random().toString(36).slice(2), code_challenge:challenge, code_challenge_method:'S256' })
-    // Full redirect instead of popup — avoids blank-box issue when X uses Google SSO
-    window.location.href = url
+    const popup = window.open(url, 'x_oauth', 'width=600,height=750,left=200,top=80')
+    setConnectingX(true)
+    const handler = async e => {
+      if (e.origin !== window.location.origin || e.data?.type !== 'x_oauth') return
+      window.removeEventListener('message', handler)
+      setConnectingX(false)
+      if (e.data.code) await exchangeXCode(e.data.code)
+      else alert('X auth failed: ' + (e.data.error || 'unknown'))
+    }
+    window.addEventListener('message', handler)
+    setTimeout(() => { window.removeEventListener('message', handler); setConnectingX(false); if (popup && !popup.closed) popup.close() }, 120000)
   }
   function disconnectX() {
     ['x_token','x_username','x_refresh_token'].forEach(k=>localStorage.removeItem(k))

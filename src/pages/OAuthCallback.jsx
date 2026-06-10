@@ -25,9 +25,14 @@ export default function OAuthCallback() {
       const params = new URLSearchParams(search)
       const code   = params.get('code')
       const error  = params.get('error')
-      if (code) localStorage.setItem('x_pending_code', code)
-      if (error) localStorage.setItem('x_pending_error', error)
-      window.location.replace(returnTo('x_oauth_return'))
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage({ type: 'x_oauth', code, error }, window.location.origin)
+        window.close()
+      } else {
+        if (code) localStorage.setItem('x_pending_code', code)
+        if (error) localStorage.setItem('x_pending_error', error)
+        window.location.replace(returnTo('x_oauth_return'))
+      }
 
     } else if (pathname === '/oauth/kick') {
       const params = new URLSearchParams(search)
