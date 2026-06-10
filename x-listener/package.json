@@ -1,0 +1,16 @@
+{
+  "name": "market-bubble-x-listener",
+  "version": "1.0.0",
+  "description": "Reads the X live chat locally and serves it to the Market Bubble web dashboard.",
+  "main": "main.cjs",
+  "scripts": { "start": "electron ." },
+  "devDependencies": { "electron": "^31.0.0", "electron-builder": "^24.13.3" },
+  "build": {
+    "appId": "com.marketbubble.xlistener",
+    "productName": "MB X Chat Listener",
+    "files": ["**/*"],
+    "directories": { "output": "release" },
+    "win": { "target": "nsis" },
+    "mac": { "target": "dmg" }
+  }
+}

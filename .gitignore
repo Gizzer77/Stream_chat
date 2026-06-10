@@ -3,3 +3,8 @@ dist/
 .env
 .env.local
 .vercel
+node_modules
+dist
+release
+*.fuse_hidden*
+vite.config.js.timestamp-*
