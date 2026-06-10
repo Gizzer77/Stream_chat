@@ -271,7 +271,7 @@ function StreamPlayer({ streamers }) {
 
 const PLAT = { twitch:{ color:'#9147ff', bg:'rgba(145,71,255,0.12)' }, kick:{ color:'#53fc18', bg:'rgba(83,252,24,0.1)' } }
 
-function CombinedChat({ streamers }) {
+function CombinedChat({ streamers, twitchAuth, xAuth }) {
   const myTwitch = localStorage.getItem('twitch_username') || ''
   const myKick   = localStorage.getItem('kick_username')   || ''
 
@@ -292,7 +292,39 @@ function CombinedChat({ streamers }) {
   const [filter,    setFilter]    = useState('all')
   const [showCfg,   setShowCfg]   = useState(false)
   const [addInput,  setAddInput]  = useState('')
-  const chatRef = useRef(null)
+  const chatRef   = useRef(null)
+  const [sendMsg,  setSendMsg]  = useState('')
+  const [sendStatus, setSendStatus] = useState(null)
+
+  const myTwitchCh = localStorage.getItem('twitch_username') || ''
+  const { ready: twSendReady, send: twSend } = useTwitchSend(twitchAuth?.token, twitchAuth?.username)
+  const xReady = !!xAuth?.token
+
+  async function handleSend() {
+    const text = sendMsg.trim()
+    if (!text) return
+    setSendMsg('')
+    const results = []
+    if (twSendReady && myTwitchCh) {
+      twSend([myTwitchCh], text)
+      results.push('Twitch')
+    }
+    if (xReady) {
+      try {
+        const r = await fetch('/api/x-tweet', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ text, accessToken: xAuth.token }),
+        })
+        const d = await r.json()
+        results.push(r.ok ? 'X' : `X: ${d.error}`)
+      } catch(e) { results.push(`X err: ${e.message}`) }
+    }
+    const sent = results.filter(Boolean)
+    setSendStatus(sent.length
+      ? { ok:true, text:`✓ ${sent.join(' + ')}` }
+      : { ok:false, text:'Connect a platform first' })
+    setTimeout(() => setSendStatus(null), 3000)
+  }
 
   // Build streamers array for hooks
   const hookStreamers = sources.map(s => ({
@@ -402,6 +434,49 @@ function CombinedChat({ streamers }) {
             </div>
           )
         })}
+      </div>
+
+      {/* ── Send box ── */}
+      <div style={{ flexShrink:0, borderTop:'1px solid rgba(255,255,255,0.06)', padding:'8px 10px', display:'flex', flexDirection:'column', gap:4 }}>
+        {sendStatus && (
+          <div style={{ fontSize:11, padding:'3px 10px', borderRadius:6, textAlign:'center',
+            background: sendStatus.ok ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+            color:      sendStatus.ok ? '#22c55e'             : '#f87171',
+            border:`1px solid ${sendStatus.ok?'rgba(34,197,94,0.2)':'rgba(239,68,68,0.2)'}`,
+          }}>{sendStatus.text}</div>
+        )}
+        <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+          <input
+            value={sendMsg}
+            onChange={e => setSendMsg(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())}
+            placeholder={
+              twSendReady || xReady
+                ? 'Send to ' + [twSendReady&&'Twitch', xReady&&'X'].filter(Boolean).join(' + ') + '…'
+                : 'Connect Twitch or X to send…'
+            }
+            style={{
+              flex:1, background:'rgba(10,10,22,0.85)',
+              border:`1px solid ${sendMsg.trim()&&(twSendReady||xReady)?'rgba(145,71,255,0.45)':'rgba(255,255,255,0.08)'}`,
+              borderRadius:9, padding:'7px 12px', fontSize:13, color:'#eeeef5',
+              outline:'none', fontFamily:'inherit', transition:'border-color .15s',
+            }}
+          />
+          <button
+            onClick={handleSend}
+            disabled={!sendMsg.trim() || (!twSendReady && !xReady)}
+            style={{
+              padding:'7px 14px', borderRadius:9, fontSize:13, fontWeight:800,
+              cursor: (sendMsg.trim() && (twSendReady||xReady)) ? 'pointer' : 'not-allowed',
+              background: (sendMsg.trim() && (twSendReady||xReady))
+                ? 'linear-gradient(135deg,#9147ff,#6441a5)' : 'rgba(255,255,255,0.04)',
+              color: (sendMsg.trim() && (twSendReady||xReady)) ? '#fff' : '#33334a',
+              border:'none', transition:'all .15s',
+              boxShadow: (sendMsg.trim() && (twSendReady||xReady)) ? '0 4px 16px rgba(145,71,255,0.3)' : 'none',
+              flexShrink:0,
+            }}
+          >↑</button>
+        </div>
       </div>
     </div>
   )
@@ -819,7 +894,7 @@ function defaultWidgets() {
   return [
     { id:'stream',     title:'Live Stream',        icon:'📺', accent:'#9147ff', x:0,   y:0,   w:700, h:450, minW:320, minH:200, zIndex:1, visible:true },
     { id:'chat',       title:'Combined Chat',      icon:'💬', accent:'#54c0ff', x:710, y:0,   w:320, h:700, minW:260, minH:240, zIndex:1, visible:true },
-    { id:'broadcast',  title:'Send to Chat',       icon:'📢', accent:'#f59e0b', x:710, y:710, w:320, h:340, minW:260, minH:260, zIndex:1, visible:true },
+    { id:'broadcast',  title:'Send to Chat',       icon:'📢', accent:'#f59e0b', x:710, y:710, w:320, h:340, minW:260, minH:260, zIndex:1, visible:false },
     { id:'viewers',    title:'Viewer Counts',      icon:'👥', accent:'#22c55e', x:0,   y:460, w:340, h:280, minW:220, minH:180, zIndex:1, visible:true },
     { id:'polymarket', title:'Polymarket',         icon:'📊', accent:'#3b82f6', x:350, y:460, w:350, h:280, minW:260, minH:200, zIndex:1, visible:true },
     { id:'c3po',       title:'C-3PO AI Assistant', icon:'🤖', accent:'#ffd700', x:0,   y:750, w:700, h:300, minW:300, minH:240, zIndex:1, visible:true },
@@ -913,6 +988,7 @@ export default function Dashboard() {
     const challenge = await genCodeChallenge(verifier)
     sessionStorage.setItem('x_code_verifier', verifier)
     localStorage.setItem('x_code_verifier_tmp', verifier)
+    localStorage.setItem('x_oauth_return', window.location.href.split('#')[0])
     const redirectUri = `${window.location.origin}/oauth/x`
     const url = 'https://twitter.com/i/oauth2/authorize?' + new URLSearchParams({
       response_type:'code', client_id:clientId, redirect_uri:redirectUri,
@@ -920,16 +996,8 @@ export default function Dashboard() {
       state:Math.random().toString(36).slice(2),
       code_challenge:challenge, code_challenge_method:'S256',
     })
-    const popup = window.open(url,'x_oauth','width=700,height=850,left=100,top=50')
-    setConnectingX(true)
-    const handler = async e => {
-      if (e.origin!==window.location.origin||e.data?.type!=='x_oauth') return
-      window.removeEventListener('message',handler); setConnectingX(false)
-      if (e.data.code) await exchangeXCode(e.data.code)
-      else alert('X auth failed: '+(e.data.error||'unknown'))
-    }
-    window.addEventListener('message',handler)
-    setTimeout(() => { window.removeEventListener('message',handler); setConnectingX(false); if(popup&&!popup.closed)popup.close() }, 120000)
+    // Full redirect — avoids blank popup when X routes through Google SSO
+    window.location.href = url
   }
 
   useEffect(() => {
@@ -945,7 +1013,7 @@ export default function Dashboard() {
   function renderContent(id) {
     switch (id) {
       case 'stream':     return <StreamPlayer streamers={streamers} />
-      case 'chat':       return <CombinedChat streamers={streamers} />
+      case 'chat':       return <CombinedChat streamers={streamers} twitchAuth={twitchAuth} xAuth={xAuth} />
       case 'viewers':    return <ViewerCounts streamers={streamers} />
       case 'polymarket': return <Polymarket />
       case 'c3po':       return <C3POWidget />

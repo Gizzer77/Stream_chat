@@ -374,21 +374,15 @@ export default function Setup() {
     if (!cid) { alert('Add VITE_X_CLIENT_ID to your .env.local file'); return }
     const verifier  = genCodeVerifier()
     const challenge = await genCodeChallenge(verifier)
+    // Store in BOTH so the redirect-flow exchange works (sessionStorage doesn't survive navigation)
     sessionStorage.setItem('x_code_verifier', verifier)
-    localStorage.setItem('x_code_verifier_tmp', verifier) // fallback for SSO redirect flow
+    localStorage.setItem('x_code_verifier_tmp', verifier)
+    // Also save current page state so we can restore after redirect
+    localStorage.setItem('x_oauth_return', window.location.href.split('#')[0])
     const redirectUri = `${window.location.origin}/oauth/x`
     const url = 'https://twitter.com/i/oauth2/authorize?'+new URLSearchParams({ response_type:'code', client_id:cid, redirect_uri:redirectUri, scope:'tweet.write users.read offline.access', state:Math.random().toString(36).slice(2), code_challenge:challenge, code_challenge_method:'S256' })
-    // Larger window to accommodate Google SSO inside X auth
-    const popup = window.open(url,'x_oauth','width=700,height=850,left=100,top=50')
-    setConnectingX(true)
-    const handler = async e => {
-      if (e.origin!==window.location.origin||e.data?.type!=='x_oauth') return
-      window.removeEventListener('message',handler)
-      if (e.data.code) await exchangeXCode(e.data.code)
-      else { setConnectingX(false); alert('X auth failed: '+(e.data.error||'unknown')) }
-    }
-    window.addEventListener('message',handler)
-    setTimeout(()=>{ window.removeEventListener('message',handler); setConnectingX(false); if(popup&&!popup.closed)popup.close() },120000)
+    // Full redirect instead of popup — avoids blank-box issue when X uses Google SSO
+    window.location.href = url
   }
   function disconnectX() {
     ['x_token','x_username','x_refresh_token'].forEach(k=>localStorage.removeItem(k))
