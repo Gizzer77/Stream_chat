@@ -8,6 +8,17 @@ const ENV = {
   xClientId:      import.meta.env.VITE_X_CLIENT_ID      || '',
 }
 
+// ── Debug logger (writes a timestamped trail to localStorage; shown in the
+//    on-screen Debug panel so we can see exactly what the OAuth flow does) ─────
+function dbg(msg, obj) {
+  try {
+    const line = `[${new Date().toLocaleTimeString()}] ${msg}` + (obj !== undefined ? ' ' + JSON.stringify(obj) : '')
+    const prev = localStorage.getItem('oauth_debug_log') || ''
+    localStorage.setItem('oauth_debug_log', (prev + '\n' + line).slice(-8000))
+    console.log('[OAuth]', msg, obj !== undefined ? obj : '')
+  } catch (_) {}
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function genRoomCode() {
@@ -247,6 +258,39 @@ function ProfileCard({ label, accent, icon, profile, onChange, readOnly,
   )
 }
 
+// ── Debug panel (on-screen OAuth log) ────────────────────────────────────────
+const dbgBtnStyle = { background:'#1a1a2e', color:'#cfcfe6', border:'1px solid rgba(255,255,255,0.15)', borderRadius:6, padding:'3px 9px', fontSize:11, cursor:'pointer' }
+function DebugPanel() {
+  const [open, setOpen] = useState(true)
+  const [, setTick] = useState(0)
+  useEffect(() => { const id = setInterval(() => setTick(t => t + 1), 1000); return () => clearInterval(id) }, [])
+  const log = localStorage.getItem('oauth_debug_log') || '(no log yet — click a Connect button to start)'
+  const keys = ['twitch_token','twitch_username','twitch_pending_token','x_token','x_username','x_pending_code','x_pending_error','x_oauth_return','kick_token','kick_username']
+  const snap = keys.map(k => { const v = localStorage.getItem(k); return `${k} = ${v ? (k.includes('token') ? v.slice(0,8)+'…('+v.length+')' : v) : '∅'}` }).join('\n')
+  const copy = () => navigator.clipboard.writeText('ENV(build):\n  VITE_TWITCH_CLIENT_ID '+(ENV.twitchClientId?'set':'MISSING')+'\n  VITE_X_CLIENT_ID '+(ENV.xClientId?'set':'MISSING')+'\n  VITE_KICK_CLIENT_ID '+(ENV.kickClientId?'set':'MISSING')+'\n\nSTATE:\n'+snap+'\n\nLOG:'+log).catch(()=>{})
+  const clear = () => { localStorage.removeItem('oauth_debug_log'); setTick(t => t + 1) }
+  if (!open) return (
+    <button onClick={() => setOpen(true)} style={{ position:'fixed', bottom:12, right:12, zIndex:9999, background:'#1a1a2e', color:'#9147ff', border:'1px solid #9147ff55', borderRadius:8, padding:'6px 12px', fontSize:12, fontWeight:700, cursor:'pointer' }}>🐞 Debug</button>
+  )
+  return (
+    <div style={{ position:'fixed', bottom:0, left:0, right:0, zIndex:9999, maxHeight:'45vh', display:'flex', flexDirection:'column', background:'#0a0a14', borderTop:'2px solid #9147ff', fontFamily:'monospace', fontSize:11, color:'#cfcfe6', boxShadow:'0 -8px 30px rgba(0,0,0,0.6)' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 12px', borderBottom:'1px solid rgba(255,255,255,0.1)' }}>
+        <strong style={{ color:'#9147ff' }}>🐞 OAuth Debug</strong>
+        <button onClick={() => setTick(t => t + 1)} style={dbgBtnStyle}>Refresh</button>
+        <button onClick={copy} style={dbgBtnStyle}>Copy all</button>
+        <button onClick={clear} style={dbgBtnStyle}>Clear log</button>
+        <span style={{ flex:1 }} />
+        <span style={{ color:'#44445a' }}>build env: TW {ENV.twitchClientId?'✓':'✗'} · X {ENV.xClientId?'✓':'✗'} · KICK {ENV.kickClientId?'✓':'✗'}</span>
+        <button onClick={() => setOpen(false)} style={dbgBtnStyle}>Hide ▾</button>
+      </div>
+      <div style={{ display:'flex', gap:12, overflow:'auto', padding:'8px 12px' }}>
+        <pre style={{ margin:0, whiteSpace:'pre-wrap', flex:'0 0 300px', color:'#7dd3fc' }}>{snap}</pre>
+        <pre style={{ margin:0, whiteSpace:'pre-wrap', flex:1, color:'#cfcfe6' }}>{log}</pre>
+      </div>
+    </div>
+  )
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function Setup() {
@@ -282,8 +326,10 @@ export default function Setup() {
 
     const pendingTwitchErr = localStorage.getItem('twitch_pending_error')
     if (pendingTwitchErr) { localStorage.removeItem('twitch_pending_error'); alert('Twitch auth failed: ' + pendingTwitchErr) }
+    dbg('SETUP mount', { hasPendingTwitch: !!localStorage.getItem('twitch_pending_token'), hasPendingX: !!localStorage.getItem('x_pending_code'), twitchUser: localStorage.getItem('twitch_username')||'', xUser: localStorage.getItem('x_username')||'' })
     const pendingTwitch = localStorage.getItem('twitch_pending_token')
     if (pendingTwitch) {
+      dbg('SETUP processing twitch pending token')
       localStorage.removeItem('twitch_pending_token')
       localStorage.setItem('twitch_token', pendingTwitch)
       // Show "connected" in the UI immediately so it never looks stuck,
@@ -304,7 +350,7 @@ export default function Setup() {
     if (pendingXErr) { localStorage.removeItem('x_pending_error'); alert('X auth failed: ' + pendingXErr) }
     const pendingX    = localStorage.getItem('x_pending_code')
     const pendingKick = localStorage.getItem('kick_pending_code')
-    if (pendingX)    { localStorage.removeItem('x_pending_code');    setConnectingX(true); exchangeXCode(pendingX) }
+    if (pendingX)    { dbg('SETUP found x pending code -> exchanging'); localStorage.removeItem('x_pending_code');    setConnectingX(true); exchangeXCode(pendingX) }
     if (pendingKick) { localStorage.removeItem('kick_pending_code'); exchangeKickCode(pendingKick) }
   }, [])
 
@@ -314,6 +360,7 @@ export default function Setup() {
     if (!cid) { alert('Add VITE_TWITCH_CLIENT_ID to your .env.local file'); return }
     const redirectUri = `${window.location.origin}/oauth/twitch`
     localStorage.setItem('twitch_oauth_return', window.location.href.split('#')[0])
+    dbg('TWITCH connect -> redirecting to Twitch', { cid: (cid||'').slice(0,6)+'...', redirectUri, returnTo: window.location.href.split('#')[0] })
     const url = `https://id.twitch.tv/oauth2/authorize?client_id=${cid}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=chat%3Aread+chat%3Aedit`
     // Full redirect — avoids postMessage/popup-blocker/COOP issues
     window.location.href = url
@@ -368,16 +415,21 @@ export default function Setup() {
     const codeVerifier = sessionStorage.getItem('x_code_verifier') || localStorage.getItem('x_code_verifier_tmp') || ''
     localStorage.removeItem('x_code_verifier_tmp')
     const redirectUri  = `${window.location.origin}/oauth/x`
+    dbg('X exchange start', { codeLen: code?code.length:0, hasVerifier: !!codeVerifier, redirectUri })
     try {
       const r = await fetch('/api/x-auth', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({code,codeVerifier,redirectUri}) })
-      const d = await r.json()
+      const raw = await r.text()
+      let d = {}
+      try { d = JSON.parse(raw) } catch (_) { d = { error: 'Non-JSON response from /api/x-auth (are you on the deployed site / vercel dev? plain `vite` does not run /api): ' + raw.slice(0,120) } }
+      dbg('X exchange response', { status: r.status, ok: r.ok, hasToken: !!d.access_token, username: d.username||'', error: d.error||'' })
       if (d.access_token) {
         localStorage.setItem('x_token',    d.access_token)
-        localStorage.setItem('x_username', d.username||'')
+        localStorage.setItem('x_username', d.username||'connected')
         if (d.refresh_token) localStorage.setItem('x_refresh_token', d.refresh_token)
-        setMyProfile(p=>({...p,xUsername:d.username||''}))
-      } else alert('X auth failed: '+(d.error||'unknown'))
-    } catch(e) { alert('X auth error: '+e.message) }
+        setMyProfile(p=>({...p,xUsername:d.username||'connected'}))
+        dbg('X CONNECTED', { username: d.username||'connected' })
+      } else { alert('X auth failed: '+(d.error||'unknown')); dbg('X FAILED', { error: d.error||'unknown' }) }
+    } catch(e) { alert('X auth error: '+e.message); dbg('X exchange threw', { error: e.message }) }
     setConnectingX(false)
   }
   async function connectX() {
@@ -391,6 +443,7 @@ export default function Setup() {
     const redirectUri = `${window.location.origin}/oauth/x`
     const url = 'https://x.com/i/oauth2/authorize?'+new URLSearchParams({ response_type:'code', client_id:cid, redirect_uri:redirectUri, scope:'tweet.write users.read offline.access', state:Math.random().toString(36).slice(2), code_challenge:challenge, code_challenge_method:'S256' })
     setConnectingX(true)
+    dbg('X connect -> redirecting to X', { cid: (cid||'').slice(0,6)+'...', redirectUri, returnTo: window.location.href.split('#')[0] })
     // Full redirect — avoids popup-blocker/COOP/opener issues that caused the X login loop
     window.location.href = url
   }
@@ -454,6 +507,7 @@ export default function Setup() {
 
   return (
     <div style={{ minHeight:'100vh', background:'#06060c', color:'#eeeef5', fontFamily:"'Inter','Segoe UI',system-ui,sans-serif", overflowY:'auto' }}>
+      <DebugPanel />
       <div style={{ position:'fixed', inset:0, pointerEvents:'none', zIndex:0,
         background: isGuest
           ? 'radial-gradient(ellipse 80% 50% at 50% -10%,rgba(84,192,255,0.1) 0%,transparent 70%)'

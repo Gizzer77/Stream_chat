@@ -1,25 +1,39 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 
+// Shared debug logger — writes a timestamped trail to localStorage so the
+// Setup page can display exactly what happened during the OAuth round-trip.
+function dbg(msg, obj) {
+  try {
+    const line = `[${new Date().toLocaleTimeString()}] ${msg}` + (obj !== undefined ? ' ' + JSON.stringify(obj) : '')
+    const prev = localStorage.getItem('oauth_debug_log') || ''
+    localStorage.setItem('oauth_debug_log', (prev + '\n' + line).slice(-8000))
+    console.log('[OAuth]', msg, obj !== undefined ? obj : '')
+  } catch (_) {}
+}
+
 export default function OAuthCallback() {
   const { pathname, search } = useLocation()
 
   useEffect(() => {
-    // Redirect back to where the auth was initiated, falling back to '/'
     function returnTo(key) {
       const saved = localStorage.getItem(key)
       localStorage.removeItem(key)
       return saved || '/'
     }
 
+    dbg('CALLBACK hit', { pathname, origin: window.location.origin, hasHash: !!window.location.hash, hasSearch: !!search })
+
     if (pathname === '/oauth/twitch') {
       const params = new URLSearchParams(window.location.hash.slice(1))
       const token  = params.get('access_token')
       const error  = params.get('error_description') || params.get('error')
-      // Always use redirect flow — popup/postMessage approach has COOP/blocker issues
+      dbg('TWITCH parsed', { hasToken: !!token, tokenLen: token ? token.length : 0, error })
       if (token) localStorage.setItem('twitch_pending_token', token)
       if (error) localStorage.setItem('twitch_pending_error', error)
-      window.location.replace(returnTo('twitch_oauth_return'))
+      const dest = returnTo('twitch_oauth_return')
+      dbg('TWITCH redirecting back', { dest })
+      window.location.replace(dest)
 
     } else if (pathname === '/oauth/x') {
       // Always use redirect flow — popup/postMessage breaks because X redirects
@@ -28,14 +42,18 @@ export default function OAuthCallback() {
       const params = new URLSearchParams(search)
       const code   = params.get('code')
       const error  = params.get('error')
+      dbg('X parsed', { hasCode: !!code, codeLen: code ? code.length : 0, error })
       if (code)  localStorage.setItem('x_pending_code', code)
       if (error) localStorage.setItem('x_pending_error', error)
-      window.location.replace(returnTo('x_oauth_return'))
+      const dest = returnTo('x_oauth_return')
+      dbg('X redirecting back', { dest })
+      window.location.replace(dest)
 
     } else if (pathname === '/oauth/kick') {
       const params = new URLSearchParams(search)
       const code   = params.get('code')
       const error  = params.get('error')
+      dbg('KICK parsed', { hasCode: !!code, error, hasOpener: !!(window.opener && !window.opener.closed) })
       if (window.opener && !window.opener.closed) {
         window.opener.postMessage({ type: 'kick_oauth', code, error }, window.location.origin)
         window.close()
