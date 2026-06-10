@@ -208,7 +208,12 @@ export default function Dashboard() {
         {/* LEFT / MAIN: stream (smaller) + small viewers top-right, then big C-3PO + Polymarket */}
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto' }}>
           {show('stream') && (
-            <div style={{ height: 'clamp(220px, 32vh, 380px)', flexShrink: 0 }}>{P('stream')}</div>
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', flexShrink: 0 }}>
+              {/* same 2:1 flex ratio as the C-3PO + Polymarket row, so the
+                  stream lines up to the C-3PO panel's width */}
+              <div style={{ flex: '2 1 340px', height: 'clamp(220px, 30vh, 360px)' }}>{P('stream')}</div>
+              <div style={{ flex: '1 1 300px' }} />
+            </div>
           )}
           {(show('c3po') || show('polymarket')) && (
             <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', flexShrink: 0 }}>
