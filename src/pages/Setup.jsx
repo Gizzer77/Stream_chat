@@ -280,6 +280,22 @@ export default function Setup() {
     const invite = params.get('invite')
     if (invite) { try { setHostProfile(JSON.parse(atob(invite))); setIsGuest(true) } catch(_){} }
 
+    const pendingTwitchErr = localStorage.getItem('twitch_pending_error')
+    if (pendingTwitchErr) { localStorage.removeItem('twitch_pending_error'); alert('Twitch auth failed: ' + pendingTwitchErr) }
+    const pendingTwitch = localStorage.getItem('twitch_pending_token')
+    if (pendingTwitch) {
+      localStorage.removeItem('twitch_pending_token')
+      // Save token immediately so auth isn't lost if username lookup fails
+      localStorage.setItem('twitch_token', pendingTwitch)
+      const cid = localStorage.getItem('twitch_client_id') || (typeof import_meta_env !== 'undefined' ? '' : (window.__VITE_TWITCH_CLIENT_ID__ || ''))
+      const envCid = localStorage.getItem('twitch_client_id') || ''
+      fetchTwitchUser(pendingTwitch, envCid).then(username => {
+        const u = username || localStorage.getItem('twitch_username') || 'connected'
+        localStorage.setItem('twitch_username', u)
+        setMyProfile(p => ({ ...p, twitchUsername: u }))
+      })
+    }
+
     const pendingX    = localStorage.getItem('x_pending_code')
     const pendingKick = localStorage.getItem('kick_pending_code')
     if (pendingX)    { localStorage.removeItem('x_pending_code');    exchangeXCode(pendingX) }

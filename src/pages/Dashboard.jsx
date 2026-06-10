@@ -930,6 +930,8 @@ export default function Dashboard() {
 
   // Handle pending tokens from redirect flow
   useEffect(() => {
+    const pendingTwitchErr = localStorage.getItem('twitch_pending_error')
+    if (pendingTwitchErr) { localStorage.removeItem('twitch_pending_error'); alert('Twitch auth failed: ' + pendingTwitchErr) }
     const pendingTwitch = localStorage.getItem('twitch_pending_token')
     if (pendingTwitch) { localStorage.removeItem('twitch_pending_token'); fetchTwitchUser(pendingTwitch) }
     const pendingX = localStorage.getItem('x_pending_code')
@@ -937,13 +939,20 @@ export default function Dashboard() {
   }, [])
 
   async function fetchTwitchUser(token) {
+    // Save token immediately — don't wait for username lookup
+    localStorage.setItem('twitch_token', token)
+    setTwitchAuth(prev => ({ token, username: prev?.username || '' }))
+
     const clientId = localStorage.getItem('twitch_client_id') || import.meta.env.VITE_TWITCH_CLIENT_ID || ''
     if (!clientId) return
     try {
       const r = await fetch('https://api.twitch.tv/helix/users', { headers:{ Authorization:`Bearer ${token}`, 'Client-Id':clientId } })
       const d = await r.json()
       const username = d.data?.[0]?.login
-      if (username) { localStorage.setItem('twitch_token',token); localStorage.setItem('twitch_username',username); setTwitchAuth({token,username}) }
+      if (username) {
+        localStorage.setItem('twitch_username', username)
+        setTwitchAuth({ token, username })
+      }
     } catch(_) {}
   }
 
