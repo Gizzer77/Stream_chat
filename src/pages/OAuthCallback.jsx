@@ -22,17 +22,15 @@ export default function OAuthCallback() {
       window.location.replace(returnTo('twitch_oauth_return'))
 
     } else if (pathname === '/oauth/x') {
+      // Always use redirect flow — popup/postMessage breaks because X redirects
+      // twitter.com -> x.com, COOP severs window.opener, and the message never
+      // reaches the parent (was causing the login loop).
       const params = new URLSearchParams(search)
       const code   = params.get('code')
       const error  = params.get('error')
-      if (window.opener && !window.opener.closed) {
-        window.opener.postMessage({ type: 'x_oauth', code, error }, window.location.origin)
-        window.close()
-      } else {
-        if (code) localStorage.setItem('x_pending_code', code)
-        if (error) localStorage.setItem('x_pending_error', error)
-        window.location.replace(returnTo('x_oauth_return'))
-      }
+      if (code)  localStorage.setItem('x_pending_code', code)
+      if (error) localStorage.setItem('x_pending_error', error)
+      window.location.replace(returnTo('x_oauth_return'))
 
     } else if (pathname === '/oauth/kick') {
       const params = new URLSearchParams(search)
