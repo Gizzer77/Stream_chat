@@ -1,5 +1,12 @@
-import { useState, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+
+// ── Env vars (VITE_ prefix = accessible in browser) ───────────────────────────
+const ENV = {
+  twitchClientId: import.meta.env.VITE_TWITCH_CLIENT_ID || '',
+  kickClientId:   import.meta.env.VITE_KICK_CLIENT_ID   || '',
+  xClientId:      import.meta.env.VITE_X_CLIENT_ID      || '',
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -8,99 +15,234 @@ function genRoomCode() {
   return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
 }
 
-function parseChannel(input, platform) {
-  if (!input?.trim()) return ''
-  input = input.trim()
-  const prefixes = {
-    twitch: ['https://www.twitch.tv/', 'https://twitch.tv/', 'twitch.tv/'],
-    kick:   ['https://www.kick.com/',  'https://kick.com/',  'kick.com/' ],
-  }
-  for (const p of (prefixes[platform] || [])) {
-    if (input.toLowerCase().startsWith(p.toLowerCase()))
-      return input.slice(p.length).split('/')[0].split('?')[0]
-  }
-  return input.split('/').pop().split('?')[0]
-}
-
-function buildConfig(streamers, roomCode, locked) {
-  return {
-    roomCode,
-    locked,
-    streamers: streamers.map(s => ({
-      name:   s.name.trim(),
-      twitch: parseChannel(s.twitch, 'twitch'),
-      kick:   parseChannel(s.kick,   'kick'),
+function buildRoomUrl(profiles, roomCode, locked) {
+  const config = {
+    roomCode, locked,
+    streamers: profiles.map(p => ({
+      name:   p.name.trim(),
+      twitch: p.twitchUsername || '',
+      kick:   p.kickUsername   || '',
     })),
   }
+  return `${window.location.origin}/room#${btoa(JSON.stringify(config))}`
 }
 
-function buildUrl(streamers, roomCode, locked) {
-  const hash = btoa(JSON.stringify(buildConfig(streamers, roomCode, locked)))
-  return `${window.location.origin}/room#${hash}`
+function buildInviteUrl(myProfile, roomCode, locked) {
+  const data = { name: myProfile.name, twitchUsername: myProfile.twitchUsername||'', kickUsername: myProfile.kickUsername||'', xUsername: myProfile.xUsername||'', roomCode, locked }
+  return `${window.location.origin}/?invite=${btoa(JSON.stringify(data))}`
 }
 
-// ── Platform field ────────────────────────────────────────────────────────────
+// ── PKCE ──────────────────────────────────────────────────────────────────────
 
-function PlatformField({ platform, value, onChange }) {
-  const meta = {
-    twitch: { label: 'Twitch', color: '#9147ff', placeholder: 'twitch.tv/username  or  username' },
-    kick:   { label: 'Kick',   color: '#1f9e47', placeholder: 'kick.com/username  or  username'  },
-  }[platform]
+function genCodeVerifier() {
+  const arr = new Uint8Array(32)
+  window.crypto.getRandomValues(arr)
+  return Array.from(arr, d => ('0'+d.toString(16)).slice(-2)).join('')
+}
+async function genCodeChallenge(verifier) {
+  const digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))
+  return btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'')
+}
 
+async function fetchTwitchUser(token, clientId) {
+  try {
+    const r = await fetch('https://api.twitch.tv/helix/users', { headers: { 'Authorization':`Bearer ${token}`, 'Client-Id':clientId } })
+    return (await r.json()).data?.[0]?.login || ''
+  } catch { return '' }
+}
+
+// ── Platform config ───────────────────────────────────────────────────────────
+
+const PLATFORMS = {
+  twitch: { label:'Twitch',      color:'#9147ff', glow:'rgba(145,71,255,0.25)', bg:'rgba(145,71,255,0.1)',  border:'rgba(145,71,255,0.3)',  icon:'🟣' },
+  kick:   { label:'Kick',        color:'#53fc18', glow:'rgba(83,252,24,0.2)',   bg:'rgba(83,252,24,0.07)', border:'rgba(83,252,24,0.25)', icon:'🟢' },
+  x:      { label:'X (Twitter)', color:'#e2e8f0', glow:'rgba(255,255,255,0.1)',  bg:'rgba(255,255,255,0.06)', border:'rgba(255,255,255,0.2)', icon:'✖' },
+}
+
+// ── Connected platform tile ───────────────────────────────────────────────────
+
+function PlatformTile({ platform, username, onDisconnect }) {
+  const p = PLATFORMS[platform]
+  const [hov, setHov] = useState(false)
   return (
-    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
+    <div style={{
+      display:'flex', alignItems:'center', gap:10,
+      background: p.bg, border:`1px solid ${hov ? p.border : p.border+'88'}`,
+      borderRadius:10, padding:'10px 13px',
+      boxShadow: `0 0 12px ${p.glow}`,
+      transition:'all .15s',
+    }}>
       <div style={{
-        flexShrink:0, width:56, textAlign:'center',
-        background: `${meta.color}22`, color: meta.color,
-        border: `1px solid ${meta.color}44`,
-        borderRadius:'var(--r-sm)', padding:'4px 6px',
-        fontSize:11, fontWeight:700, letterSpacing:'0.05em',
-      }}>{meta.label}</div>
-      <input
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={meta.placeholder}
-        style={{
-          flex:1, background:'var(--bg)', border:'1px solid var(--border2)',
-          borderRadius:'var(--r-sm)', padding:'8px 10px', fontSize:13, outline:'none',
-          transition:'border-color .15s',
-        }}
-        onFocus={e  => e.target.style.borderColor = meta.color + '88'}
-        onBlur={e   => e.target.style.borderColor = 'var(--border2)'}
-      />
+        width:28, height:28, borderRadius:8, flexShrink:0,
+        background:`${p.color}22`, border:`1px solid ${p.color}44`,
+        display:'flex', alignItems:'center', justifyContent:'center', fontSize:14,
+      }}>{p.icon}</div>
+      <div style={{ flex:1 }}>
+        <div style={{ fontSize:10, fontWeight:800, color:p.color, textTransform:'uppercase', letterSpacing:'0.08em' }}>{p.label}</div>
+        <div style={{ fontSize:13, fontWeight:700, color:'#eeeef5' }}>@{username}</div>
+      </div>
+      <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+        <div style={{ width:6, height:6, borderRadius:'50%', background:'#22c55e', boxShadow:'0 0 6px #22c55e' }} />
+        <button onClick={onDisconnect}
+          onMouseOver={e=>{ e.currentTarget.style.color='#ef4444'; setHov(true) }}
+          onMouseOut={e=>{ e.currentTarget.style.color='#33334a'; setHov(false) }}
+          style={{ background:'none', border:'none', color:'#33334a', cursor:'pointer', fontSize:11, fontWeight:700, padding:'2px 6px', transition:'color .15s' }}>
+          ✕
+        </button>
+      </div>
     </div>
   )
 }
 
-// ── Streamer card ─────────────────────────────────────────────────────────────
+// ── Connect button ────────────────────────────────────────────────────────────
 
-const STREAMER_COLORS = ['#9147ff', '#54c0ff']
+function ConnectPlatformBtn({ platform, onClick, loading }) {
+  const p = PLATFORMS[platform]
+  const [hov, setHov] = useState(false)
+  return (
+    <button onClick={onClick} disabled={loading}
+      onMouseOver={()=>setHov(true)} onMouseOut={()=>setHov(false)}
+      style={{
+        width:'100%', padding:'10px 14px', borderRadius:10, cursor: loading?'wait':'pointer',
+        background: hov ? `${p.color}18` : `${p.color}0a`,
+        border:`1px solid ${hov ? p.border : p.border+'55'}`,
+        color: p.color, fontSize:13, fontWeight:700, transition:'all .15s',
+        display:'flex', alignItems:'center', gap:10,
+        boxShadow: hov ? `0 0 16px ${p.glow}` : 'none',
+      }}>
+      <span style={{ fontSize:16 }}>{p.icon}</span>
+      <span style={{ flex:1, textAlign:'left' }}>
+        {loading ? `Connecting to ${p.label}…` : `Connect ${p.label}`}
+      </span>
+      {loading && <span style={{ fontSize:12, opacity:0.6 }}>⏳</span>}
+      {!loading && <span style={{ fontSize:12, opacity:0.4 }}>→</span>}
+    </button>
+  )
+}
 
-function StreamerCard({ index, streamer, onChange }) {
-  const accent = STREAMER_COLORS[index] || '#9147ff'
+// ── Small UI ──────────────────────────────────────────────────────────────────
+
+function FieldLabel({ children }) {
+  return <div style={{ fontSize:10, fontWeight:800, color:'#33334a', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>{children}</div>
+}
+
+function ActionBtn({ onClick, primary, icon, label, sublabel, disabled, wide, style:s={} }) {
+  const [hov, setHov] = useState(false)
+  return (
+    <button onClick={onClick} disabled={disabled}
+      onMouseOver={()=>setHov(true)} onMouseOut={()=>setHov(false)}
+      style={{
+        flex: wide?'1 1 100%':1, minWidth:130,
+        display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+        gap:2, padding:'13px 18px', borderRadius:12, cursor:disabled?'not-allowed':'pointer',
+        border: primary?'none':'1px solid rgba(255,255,255,0.1)',
+        background: primary
+          ? (hov?'linear-gradient(135deg,#a855f7,#7c3aed)':'linear-gradient(135deg,#9147ff,#6d28d9)')
+          : (hov?'rgba(255,255,255,0.07)':'rgba(255,255,255,0.04)'),
+        boxShadow: primary?(hov?'0 6px 28px rgba(145,71,255,0.45)':'0 4px 20px rgba(145,71,255,0.3)'):'none',
+        transition:'all .15s', opacity:disabled?0.4:1, ...s,
+      }}>
+      <span style={{ fontSize:16 }}>{icon}</span>
+      <span style={{ fontSize:13, fontWeight:700, color:primary?'#fff':'#cccce0' }}>{label}</span>
+      {sublabel && <span style={{ fontSize:10, color:primary?'rgba(255,255,255,0.55)':'#44445a' }}>{sublabel}</span>}
+    </button>
+  )
+}
+
+function Badge({ color, bg, border, children }) {
+  return <span style={{ fontSize:10, fontWeight:700, color, background:bg, border:`1px solid ${border}`, borderRadius:6, padding:'2px 7px' }}>{children}</span>
+}
+
+function ErrorBar({ msg }) {
+  return <div style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.22)', borderRadius:10, padding:'10px 16px', fontSize:13, color:'#f87171', marginBottom:14 }}>⚠ {msg}</div>
+}
+
+// ── ProfileCard ───────────────────────────────────────────────────────────────
+
+function ProfileCard({ label, accent, icon, profile, onChange, readOnly,
+  onConnectTwitch, onDisconnectTwitch, connectingTw,
+  onConnectKick,   onDisconnectKick,   connectingKick,
+  onConnectX,      onDisconnectX,      connectingX,
+}) {
+  const hasTwitch = !!profile.twitchUsername
+  const hasKick   = !!profile.kickUsername
+  const hasX      = !!profile.xUsername
+  const initials  = profile.name.trim() ? profile.name.trim().slice(0,2).toUpperCase() : '?'
+  const connectedCount = [hasTwitch, hasKick, hasX].filter(Boolean).length
+
   return (
     <div style={{
-      background:'var(--surface)', border:'1px solid var(--border)',
-      borderTop: `3px solid ${accent}`,
-      borderRadius:'var(--r-lg)', padding:20, flex:1, minWidth:220,
+      flex:1, minWidth:280,
+      background:'linear-gradient(160deg,#0f0f1c 0%,#0a0a14 100%)',
+      border:`1px solid ${readOnly?'rgba(255,255,255,0.05)':accent+'33'}`,
+      borderRadius:18, overflow:'hidden',
+      boxShadow: readOnly?'none':`0 4px 32px ${accent}18`,
+      opacity: readOnly?0.78:1,
     }}>
-      <div style={{ fontSize:11, fontWeight:700, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:12 }}>
-        Streamer {index + 1}
+      {/* Header */}
+      <div style={{ padding:'14px 18px 12px', background:`linear-gradient(135deg,${accent}18 0%,transparent 80%)`, borderBottom:'1px solid rgba(255,255,255,0.05)', display:'flex', alignItems:'center', gap:12 }}>
+        <div style={{ width:40, height:40, borderRadius:12, flexShrink:0, background:`linear-gradient(135deg,${accent}55,${accent}22)`, border:`2px solid ${accent}44`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:15, fontWeight:900, color:accent }}>
+          {initials}
+        </div>
+        <div style={{ flex:1 }}>
+          <div style={{ fontSize:10, fontWeight:800, color:accent, textTransform:'uppercase', letterSpacing:'0.1em' }}>{icon} {label}</div>
+          <div style={{ display:'flex', gap:5, marginTop:5, flexWrap:'wrap' }}>
+            {hasTwitch && <Badge color="#9147ff" bg="rgba(145,71,255,0.12)" border="rgba(145,71,255,0.25)">🟣 @{profile.twitchUsername}</Badge>}
+            {hasKick   && <Badge color="#53fc18" bg="rgba(83,252,24,0.08)"  border="rgba(83,252,24,0.2)"  >🟢 @{profile.kickUsername}</Badge>}
+            {hasX      && <Badge color="#e2e8f0" bg="rgba(255,255,255,0.06)" border="rgba(255,255,255,0.15)">✖ @{profile.xUsername}</Badge>}
+            {!hasTwitch&&!hasKick&&!hasX && <span style={{ fontSize:10, color:'#22223a' }}>No accounts connected yet</span>}
+          </div>
+        </div>
+        {readOnly && <span style={{ fontSize:10, color:'#33334a', fontWeight:700, border:'1px solid rgba(255,255,255,0.07)', borderRadius:6, padding:'3px 8px' }}>CO-STREAMER</span>}
+        {!readOnly && connectedCount > 0 && (
+          <div style={{ textAlign:'center' }}>
+            <div style={{ fontSize:18, fontWeight:900, color:accent }}>{connectedCount}</div>
+            <div style={{ fontSize:9, color:'#33334a', textTransform:'uppercase', fontWeight:700 }}>linked</div>
+          </div>
+        )}
       </div>
-      <input
-        value={streamer.name}
-        onChange={e => onChange({ ...streamer, name: e.target.value })}
-        placeholder={index === 0 ? 'Your name (e.g. Sam)' : "Co-streamer's name"}
-        style={{
-          width:'100%', background:'var(--bg)', border:'1px solid var(--border2)',
-          borderRadius:'var(--r-sm)', padding:'9px 11px', fontSize:14, fontWeight:600,
-          outline:'none', marginBottom:14, color:'var(--text)',
-        }}
-        onFocus={e => e.target.style.borderColor = `${accent}88`}
-        onBlur={e  => e.target.style.borderColor = 'var(--border2)'}
-      />
-      <PlatformField platform="twitch" value={streamer.twitch} onChange={v => onChange({ ...streamer, twitch: v })} />
-      <PlatformField platform="kick"   value={streamer.kick}   onChange={v => onChange({ ...streamer, kick:   v })} />
+
+      {/* Body */}
+      <div style={{ padding:'16px 18px' }}>
+        {/* Name */}
+        <div style={{ marginBottom:14 }}>
+          <FieldLabel>Display Name</FieldLabel>
+          {readOnly
+            ? <div style={{ padding:'10px 13px', borderRadius:9, fontSize:14, fontWeight:600, background:'#07070e', border:'1px solid rgba(255,255,255,0.05)', color:'#55556a' }}>{profile.name||'—'}</div>
+            : <input value={profile.name} onChange={e=>onChange({...profile,name:e.target.value})}
+                placeholder="Your stream name..."
+                style={{ width:'100%', boxSizing:'border-box', background:'#08080f', border:'1px solid rgba(255,255,255,0.07)', borderRadius:9, padding:'10px 13px', fontSize:14, fontWeight:600, color:'#eeeef5', outline:'none', transition:'border-color .15s' }}
+                onFocus={e=>e.target.style.borderColor=accent+'55'}
+                onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.07)'}
+              />
+          }
+        </div>
+
+        {/* Platform rows */}
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+          {/* Twitch */}
+          {readOnly
+            ? <div style={{ padding:'10px 13px', borderRadius:9, fontSize:13, background:'#07070e', border:'1px solid rgba(255,255,255,0.05)', color: hasTwitch?'#9147ff':'#22223a' }}>{hasTwitch?`🟣 @${profile.twitchUsername}`:'🟣 Twitch — not connected'}</div>
+            : hasTwitch
+              ? <PlatformTile platform="twitch" username={profile.twitchUsername} onDisconnect={onDisconnectTwitch} />
+              : <ConnectPlatformBtn platform="twitch" onClick={onConnectTwitch} loading={connectingTw} />
+          }
+          {/* Kick */}
+          {readOnly
+            ? <div style={{ padding:'10px 13px', borderRadius:9, fontSize:13, background:'#07070e', border:'1px solid rgba(255,255,255,0.05)', color: hasKick?'#53fc18':'#22223a' }}>{hasKick?`🟢 @${profile.kickUsername}`:'🟢 Kick — not connected'}</div>
+            : hasKick
+              ? <PlatformTile platform="kick" username={profile.kickUsername} onDisconnect={onDisconnectKick} />
+              : <ConnectPlatformBtn platform="kick" onClick={onConnectKick} loading={connectingKick} />
+          }
+          {/* X */}
+          {readOnly
+            ? <div style={{ padding:'10px 13px', borderRadius:9, fontSize:13, background:'#07070e', border:'1px solid rgba(255,255,255,0.05)', color: hasX?'#e2e8f0':'#22223a' }}>{hasX?`✖ @${profile.xUsername}`:'✖ X — not connected'}</div>
+            : hasX
+              ? <PlatformTile platform="x" username={profile.xUsername} onDisconnect={onDisconnectX} />
+              : <ConnectPlatformBtn platform="x" onClick={onConnectX} loading={connectingX} />
+          }
+        </div>
+      </div>
     </div>
   )
 }
@@ -109,202 +251,313 @@ function StreamerCard({ index, streamer, onChange }) {
 
 export default function Setup() {
   const navigate = useNavigate()
-  const [streamers, setStreamers] = useState([
-    { name:'', twitch:'', kick:'' },
-    { name:'', twitch:'', kick:'' },
-  ])
-  const [roomCode] = useState(genRoomCode)
-  const [locked,   setLocked]  = useState(false)
-  const [copied,   setCopied]  = useState(false)
-  const [error,    setError]   = useState('')
-  const [joinUrl,  setJoinUrl] = useState('')
-  const [joinErr,  setJoinErr] = useState('')
 
-  function updateStreamer(i, val) {
-    setStreamers(prev => prev.map((s, idx) => idx === i ? val : s))
-    setError('')
+  const [isGuest,     setIsGuest]     = useState(false)
+  const [hostProfile, setHostProfile] = useState(null)
+  const [myProfile,   setMyProfile]   = useState({ name:'', twitchUsername:'', kickUsername:'', xUsername:'' })
+
+  const [connectingTw,   setConnectingTw]   = useState(false)
+  const [connectingKick, setConnectingKick] = useState(false)
+  const [connectingX,    setConnectingX]    = useState(false)
+
+  const [roomCode]     = useState(genRoomCode)
+  const [locked,        setLocked]       = useState(false)
+  const [inviteCopied,  setInviteCopied] = useState(false)
+  const [roomCopied,    setRoomCopied]   = useState(false)
+  const [finalUrl,      setFinalUrl]     = useState('')
+  const [error,         setError]        = useState('')
+  const [joinUrl,       setJoinUrl]      = useState('')
+  const [joinErr,       setJoinErr]      = useState('')
+
+  // ── Mount ──────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const tu = localStorage.getItem('twitch_username') || ''
+    const ku = localStorage.getItem('kick_username')   || ''
+    const xu = localStorage.getItem('x_username')      || ''
+    if (tu||ku||xu) setMyProfile(p => ({...p, twitchUsername:tu, kickUsername:ku, xUsername:xu}))
+
+    const params = new URLSearchParams(window.location.search)
+    const invite = params.get('invite')
+    if (invite) { try { setHostProfile(JSON.parse(atob(invite))); setIsGuest(true) } catch(_){} }
+
+    const pendingX    = localStorage.getItem('x_pending_code')
+    const pendingKick = localStorage.getItem('kick_pending_code')
+    if (pendingX)    { localStorage.removeItem('x_pending_code');    exchangeXCode(pendingX) }
+    if (pendingKick) { localStorage.removeItem('kick_pending_code'); exchangeKickCode(pendingKick) }
+  }, [])
+
+  // ── Twitch ─────────────────────────────────────────────────────────────────
+  function connectTwitch() {
+    const cid = ENV.twitchClientId || localStorage.getItem('twitch_client_id') || ''
+    if (!cid) { alert('Add VITE_TWITCH_CLIENT_ID to your .env.local file'); return }
+    const redirectUri = `${window.location.origin}/oauth/twitch`
+    const url = `https://id.twitch.tv/oauth2/authorize?client_id=${cid}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=chat%3Aread+chat%3Aedit`
+    const popup = window.open(url,'twitch_oauth','width=500,height=700,left=200,top=100')
+    setConnectingTw(true)
+    const handler = async e => {
+      if (e.origin!==window.location.origin||e.data?.type!=='twitch_oauth') return
+      window.removeEventListener('message',handler); setConnectingTw(false)
+      if (e.data.token) {
+        const username = await fetchTwitchUser(e.data.token, cid)
+        localStorage.setItem('twitch_token', e.data.token)
+        localStorage.setItem('twitch_username', username)
+        setMyProfile(p=>({...p,twitchUsername:username}))
+      } else alert('Twitch auth failed: '+(e.data.error||'unknown'))
+    }
+    window.addEventListener('message',handler)
+    setTimeout(()=>{ window.removeEventListener('message',handler); setConnectingTw(false); if(popup&&!popup.closed)popup.close() },120000)
+  }
+  function disconnectTwitch() {
+    ['twitch_token','twitch_username'].forEach(k=>localStorage.removeItem(k))
+    setMyProfile(p=>({...p,twitchUsername:''}))
   }
 
-  function validate() {
-    for (const s of streamers) {
-      if (!s.name.trim()) return 'Give each streamer a display name.'
-      if (!s.twitch.trim() && !s.kick.trim()) return `${s.name || 'Each streamer'} needs at least one channel.`
+  // ── Kick ───────────────────────────────────────────────────────────────────
+  async function exchangeKickCode(code) {
+    const codeVerifier = sessionStorage.getItem('kick_code_verifier') || ''
+    const redirectUri  = `${window.location.origin}/oauth/kick`
+    try {
+      const r = await fetch('/api/kick-auth', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({code,codeVerifier,redirectUri}) })
+      const d = await r.json()
+      if (d.access_token) {
+        localStorage.setItem('kick_token',    d.access_token)
+        localStorage.setItem('kick_username', d.username||'')
+        if (d.refresh_token) localStorage.setItem('kick_refresh_token', d.refresh_token)
+        setMyProfile(p=>({...p,kickUsername:d.username||''}))
+      } else alert('Kick auth failed: '+(d.error||'unknown'))
+    } catch(e) { alert('Kick auth error: '+e.message) }
+    setConnectingKick(false)
+  }
+  async function connectKick() {
+    const cid = ENV.kickClientId || localStorage.getItem('kick_client_id') || ''
+    if (!cid) { alert('Add VITE_KICK_CLIENT_ID to your .env.local file'); return }
+    const verifier  = genCodeVerifier()
+    const challenge = await genCodeChallenge(verifier)
+    sessionStorage.setItem('kick_code_verifier', verifier)
+    const redirectUri = `${window.location.origin}/oauth/kick`
+    const url = 'https://id.kick.com/oauth/authorize?'+new URLSearchParams({ response_type:'code', client_id:cid, redirect_uri:redirectUri, scope:'user:read channel:read chat:write', state:Math.random().toString(36).slice(2), code_challenge:challenge, code_challenge_method:'S256' })
+    const popup = window.open(url,'kick_oauth','width=500,height=700,left=200,top=100')
+    setConnectingKick(true)
+    const handler = async e => {
+      if (e.origin!==window.location.origin||e.data?.type!=='kick_oauth') return
+      window.removeEventListener('message',handler)
+      if (e.data.code) await exchangeKickCode(e.data.code)
+      else { setConnectingKick(false); alert('Kick auth failed: '+(e.data.error||'unknown')) }
     }
+    window.addEventListener('message',handler)
+    setTimeout(()=>{ window.removeEventListener('message',handler); setConnectingKick(false); if(popup&&!popup.closed)popup.close() },120000)
+  }
+  function disconnectKick() {
+    ['kick_token','kick_username','kick_refresh_token'].forEach(k=>localStorage.removeItem(k))
+    setMyProfile(p=>({...p,kickUsername:''}))
+  }
+
+  // ── X ──────────────────────────────────────────────────────────────────────
+  async function exchangeXCode(code) {
+    const codeVerifier = sessionStorage.getItem('x_code_verifier') || ''
+    const redirectUri  = `${window.location.origin}/oauth/x`
+    try {
+      const r = await fetch('/api/x-auth', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({code,codeVerifier,redirectUri}) })
+      const d = await r.json()
+      if (d.access_token) {
+        localStorage.setItem('x_token',    d.access_token)
+        localStorage.setItem('x_username', d.username||'')
+        if (d.refresh_token) localStorage.setItem('x_refresh_token', d.refresh_token)
+        setMyProfile(p=>({...p,xUsername:d.username||''}))
+      } else alert('X auth failed: '+(d.error||'unknown'))
+    } catch(e) { alert('X auth error: '+e.message) }
+    setConnectingX(false)
+  }
+  async function connectX() {
+    const cid = ENV.xClientId || localStorage.getItem('x_client_id') || ''
+    if (!cid) { alert('Add VITE_X_CLIENT_ID to your .env.local file'); return }
+    const verifier  = genCodeVerifier()
+    const challenge = await genCodeChallenge(verifier)
+    sessionStorage.setItem('x_code_verifier', verifier)
+    const redirectUri = `${window.location.origin}/oauth/x`
+    const url = 'https://twitter.com/i/oauth2/authorize?'+new URLSearchParams({ response_type:'code', client_id:cid, redirect_uri:redirectUri, scope:'tweet.write users.read offline.access', state:Math.random().toString(36).slice(2), code_challenge:challenge, code_challenge_method:'S256' })
+    const popup = window.open(url,'x_oauth','width=500,height=700,left=200,top=100')
+    setConnectingX(true)
+    const handler = async e => {
+      if (e.origin!==window.location.origin||e.data?.type!=='x_oauth') return
+      window.removeEventListener('message',handler)
+      if (e.data.code) await exchangeXCode(e.data.code)
+      else { setConnectingX(false); alert('X auth failed: '+(e.data.error||'unknown')) }
+    }
+    window.addEventListener('message',handler)
+    setTimeout(()=>{ window.removeEventListener('message',handler); setConnectingX(false); if(popup&&!popup.closed)popup.close() },120000)
+  }
+  function disconnectX() {
+    ['x_token','x_username','x_refresh_token'].forEach(k=>localStorage.removeItem(k))
+    setMyProfile(p=>({...p,xUsername:''}))
+  }
+
+  // ── Actions ────────────────────────────────────────────────────────────────
+  function validate() {
+    if (!myProfile.name.trim()) return 'Add your display name.'
+    if (!myProfile.twitchUsername&&!myProfile.kickUsername&&!myProfile.xUsername)
+      return 'Connect at least one platform.'
     return null
   }
-
-  function handleGo() {
-    const err = validate()
-    if (err) { setError(err); return }
-    const hash = btoa(JSON.stringify(buildConfig(streamers, roomCode, locked)))
-    navigate(`/room#${hash}`)
+  async function handleCopyInvite() {
+    const err=validate(); if(err){setError(err);return}
+    setError('')
+    await navigator.clipboard.writeText(buildInviteUrl(myProfile,roomCode,locked)).catch(()=>{})
+    setInviteCopied(true); setTimeout(()=>setInviteCopied(false),2500)
   }
-
-  async function handleCopy() {
-    const err = validate()
-    if (err) { setError(err); return }
-    await navigator.clipboard.writeText(buildUrl(streamers, roomCode, locked)).catch(() => {})
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2200)
+  function handleOpen(toDash) {
+    const err=validate(); if(err){setError(err);return}
+    setError('')
+    const url=buildRoomUrl([myProfile],roomCode,locked)
+    navigate((toDash?'/dashboard':'/room')+'#'+url.split('#')[1])
   }
-
+  async function handleGuestJoin() {
+    const err=validate(); if(err){setError(err);return}
+    setError('')
+    const url=buildRoomUrl([hostProfile,myProfile],hostProfile.roomCode,hostProfile.locked)
+    setFinalUrl(url)
+    await navigator.clipboard.writeText(url).catch(()=>{})
+    setRoomCopied(true); setTimeout(()=>setRoomCopied(false),3000)
+  }
+  function handleGuestNavigate(toDash) {
+    if(!finalUrl)return
+    navigate((toDash?'/dashboard':'/room')+'#'+finalUrl.split('#')[1])
+  }
   function handleJoin() {
     setJoinErr('')
-    const url = joinUrl.trim()
-    if (!url) { setJoinErr('Paste a room link first.'); return }
+    const url=joinUrl.trim()
+    if(!url){setJoinErr('Paste a room link first.');return}
     try {
-      const parsed = new URL(url)
-      const hash = parsed.hash.slice(1)
-      if (!hash) throw new Error('no hash')
-      JSON.parse(atob(hash)) // validate
-      window.location.href = url
-    } catch {
-      setJoinErr('That doesn\'t look like a valid room link.')
-    }
+      const parsed=new URL(url)
+      if(parsed.searchParams.get('invite')){window.location.href=url;return}
+      const hash=parsed.hash.slice(1)
+      if(!hash)throw new Error()
+      JSON.parse(atob(hash))
+      window.location.href=url
+    } catch {setJoinErr("That doesn't look like a valid room or invite link.")}
+  }
+
+  const myCardProps = {
+    label:'Your Profile', accent:'#9147ff', icon:'🎙',
+    profile:myProfile, onChange:setMyProfile,
+    onConnectTwitch:connectTwitch, onDisconnectTwitch:disconnectTwitch, connectingTw,
+    onConnectKick:connectKick,     onDisconnectKick:disconnectKick,     connectingKick,
+    onConnectX:connectX,           onDisconnectX:disconnectX,           connectingX,
   }
 
   return (
-    <div style={{
-      minHeight:'100vh', background:'var(--bg)', overflowY:'auto', overflowX:'hidden',
-      display:'flex', flexDirection:'column', alignItems:'center',
-    }}>
+    <div style={{ minHeight:'100vh', background:'#06060c', color:'#eeeef5', fontFamily:"'Inter','Segoe UI',system-ui,sans-serif", overflowY:'auto' }}>
+      <div style={{ position:'fixed', inset:0, pointerEvents:'none', zIndex:0,
+        background: isGuest
+          ? 'radial-gradient(ellipse 80% 50% at 50% -10%,rgba(84,192,255,0.1) 0%,transparent 70%)'
+          : 'radial-gradient(ellipse 80% 50% at 50% -10%,rgba(145,71,255,0.12) 0%,transparent 70%)' }} />
 
-      {/* ── Hero header ── */}
-      <div style={{
-        width:'100%', padding:'40px 24px 32px',
-        background:'linear-gradient(160deg, #12122099 0%, #0a0a0f 100%)',
-        borderBottom:'1px solid var(--border)',
-        textAlign:'center',
-      }}>
-        <div style={{ fontSize:36, marginBottom:10 }}>🎙</div>
-        <h1 style={{ fontSize:28, fontWeight:800, letterSpacing:'-0.5px', color:'var(--text)', marginBottom:6 }}>
-          StreamChat
-        </h1>
-        <p style={{ fontSize:15, color:'var(--muted)', maxWidth:380, margin:'0 auto' }}>
-          Aggregate live chat from Twitch & Kick into one unified view
-        </p>
-      </div>
+      <div style={{ position:'relative', zIndex:1, maxWidth:880, margin:'0 auto', padding:'40px 20px 80px' }}>
 
-      <div style={{ width:'100%', maxWidth:760, padding:'28px 20px 60px' }}>
-
-        {/* ── Streamers ── */}
-        <div style={{ display:'flex', gap:16, flexWrap:'wrap', marginBottom:20 }}>
-          {streamers.map((s, i) => (
-            <StreamerCard key={i} index={i} streamer={s} onChange={v => updateStreamer(i, v)} />
-          ))}
+        {/* Hero */}
+        <div style={{ textAlign:'center', marginBottom:44 }}>
+          <div style={{ display:'inline-flex', alignItems:'center', gap:10, background:'rgba(145,71,255,0.08)', border:'1px solid rgba(145,71,255,0.2)', borderRadius:50, padding:'6px 18px', marginBottom:18 }}>
+            <span>🟣</span><span style={{ fontSize:11, fontWeight:700, color:'#9147ff', letterSpacing:'0.1em', textTransform:'uppercase' }}>Multi-Platform Stream Chat</span><span>🟢</span>
+          </div>
+          <h1 style={{ fontSize:44, fontWeight:900, margin:'0 0 10px', letterSpacing:'-1.5px', background:'linear-gradient(135deg,#c084fc 0%,#ffffff 50%,#e879f9 100%)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>Market Bubble</h1>
+          <p style={{ fontSize:14, color:'#33334a', margin:0 }}>
+            {isGuest ? `🎙 ${hostProfile?.name||'Your co-streamer'} invited you — connect your accounts and join` : 'Log in to Twitch, Kick & X · invite your co-streamer · go live together'}
+          </p>
         </div>
 
-        {/* ── Room settings ── */}
-        <div style={{
-          background:'var(--surface)', border:'1px solid var(--border)',
-          borderRadius:'var(--r-lg)', padding:'18px 20px', marginBottom:20,
-        }}>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-              <div>
-                <div style={{ fontSize:11, fontWeight:700, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:4 }}>Room Code</div>
-                <div style={{
-                  fontFamily:'monospace', fontSize:22, fontWeight:800, letterSpacing:'0.18em', color:'var(--text)',
-                  background:'var(--bg)', border:'1px solid var(--border2)',
-                  borderRadius:'var(--r-sm)', padding:'6px 14px',
-                }}>
-                  {roomCode}
+        {/* Guest mode */}
+        {isGuest && hostProfile && (
+          <>
+            <div style={{ display:'flex', gap:16, flexWrap:'wrap', marginBottom:18 }}>
+              <ProfileCard label={hostProfile.name||'Co-Streamer'} accent="#54c0ff" icon="🎙" profile={hostProfile} readOnly />
+              <ProfileCard {...myCardProps} />
+            </div>
+            {error && <ErrorBar msg={error} />}
+            {finalUrl ? (
+              <div style={{ background:'rgba(34,197,94,0.06)', border:'1px solid rgba(34,197,94,0.2)', borderRadius:14, padding:'18px 20px', marginBottom:14 }}>
+                <div style={{ fontSize:12, fontWeight:700, color:'#22c55e', marginBottom:10 }}>✅ Room link ready — send this to {hostProfile.name||'your co-streamer'}!</div>
+                <div style={{ background:'#08080f', border:'1px solid rgba(255,255,255,0.08)', borderRadius:8, padding:'10px 14px', fontSize:12, color:'#8888aa', wordBreak:'break-all', fontFamily:'monospace', marginBottom:12 }}>{finalUrl}</div>
+                <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+                  <ActionBtn primary icon="💬" label="Open Chat Room" onClick={()=>handleGuestNavigate(false)} />
+                  <ActionBtn icon="🎛" label="Open Dashboard" onClick={()=>handleGuestNavigate(true)} />
+                  <ActionBtn icon={roomCopied?'✓':'📋'} label={roomCopied?'Copied!':'Copy Room Link'} onClick={async()=>{ await navigator.clipboard.writeText(finalUrl).catch(()=>{}); setRoomCopied(true); setTimeout(()=>setRoomCopied(false),2500) }} style={roomCopied?{borderColor:'rgba(34,197,94,0.3)'}:{}} />
                 </div>
               </div>
-              <div style={{ color:'var(--dim)', fontSize:12, maxWidth:160, lineHeight:1.5 }}>
-                Include this in your title so people know which room to join
+            ) : (
+              <ActionBtn primary wide icon="🚀" label="Join Room" sublabel={`Create combined room with ${hostProfile.name||'host'}`} onClick={handleGuestJoin} />
+            )}
+          </>
+        )}
+
+        {/* Host mode */}
+        {!isGuest && (
+          <>
+            <div style={{ display:'flex', gap:16, flexWrap:'wrap', marginBottom:18 }}>
+              <ProfileCard {...myCardProps} />
+              <div style={{ flex:1, minWidth:280, background:'linear-gradient(160deg,#0a0a12,#08080e)', border:'1px dashed rgba(255,255,255,0.06)', borderRadius:18, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:14, padding:32, minHeight:300 }}>
+                <div style={{ fontSize:36 }}>🤝</div>
+                <div style={{ textAlign:'center' }}>
+                  <div style={{ fontSize:14, fontWeight:700, color:'#33334a', marginBottom:6 }}>Add a Co-Streamer</div>
+                  <div style={{ fontSize:12, color:'#1a1a2e', lineHeight:1.7, maxWidth:220 }}>Send them the invite link. They'll log into their own accounts and join your room.</div>
+                </div>
+                <button onClick={handleCopyInvite}
+                  style={{ background:'rgba(145,71,255,0.08)', border:'1px solid rgba(145,71,255,0.2)', color:'#9147ff', borderRadius:10, padding:'9px 20px', fontSize:13, fontWeight:700, cursor:'pointer', transition:'all .15s' }}
+                  onMouseOver={e=>{ e.currentTarget.style.background='rgba(145,71,255,0.15)'; e.currentTarget.style.borderColor='rgba(145,71,255,0.4)' }}
+                  onMouseOut={e=>{ e.currentTarget.style.background='rgba(145,71,255,0.08)'; e.currentTarget.style.borderColor='rgba(145,71,255,0.2)' }}>
+                  {inviteCopied?'✅ Invite Copied!':'🔗 Copy Invite Link'}
+                </button>
               </div>
             </div>
 
-            {/* Lock toggle */}
-            <button
-              onClick={() => setLocked(v => !v)}
-              style={{
-                display:'flex', alignItems:'center', gap:8,
-                background: locked ? 'rgba(255,215,0,0.1)' : 'var(--surface2)',
-                border: `1px solid ${locked ? 'rgba(255,215,0,0.35)' : 'var(--border2)'}`,
-                color: locked ? 'var(--gold)' : 'var(--muted)',
-                borderRadius:'var(--r)', padding:'8px 16px', cursor:'pointer', fontSize:13, fontWeight:600,
-                transition:'all .2s',
-              }}
-            >
-              {locked ? '🔒' : '🔓'}
-              {locked ? 'Room Locked' : 'Lock Room'}
-            </button>
-          </div>
-          {locked && (
-            <div style={{ marginTop:10, fontSize:12, color:'var(--muted)', borderTop:'1px solid var(--border)', paddingTop:10 }}>
-              🔒 Locked rooms hide the Edit button — perfect for sharing a finalized link.
+            {/* Room settings */}
+            <div style={{ background:'linear-gradient(135deg,#0f0f1c,#0a0a14)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:16, padding:'16px 22px', marginBottom:16, display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:14 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:16 }}>
+                <div>
+                  <div style={{ fontSize:10, fontWeight:700, color:'#22223a', textTransform:'uppercase', letterSpacing:'0.09em', marginBottom:5 }}>Room Code</div>
+                  <div style={{ fontFamily:'monospace', fontSize:24, fontWeight:900, letterSpacing:'0.2em', color:'#eeeef5', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:9, padding:'7px 16px' }}>{roomCode}</div>
+                </div>
+                <div style={{ fontSize:12, color:'#1a1a2e', maxWidth:180, lineHeight:1.5 }}>Announce in your stream title so viewers can join</div>
+              </div>
+              <button onClick={()=>setLocked(v=>!v)} style={{ display:'flex', alignItems:'center', gap:8, background:locked?'rgba(234,179,8,0.08)':'rgba(255,255,255,0.04)', border:`1px solid ${locked?'rgba(234,179,8,0.3)':'rgba(255,255,255,0.08)'}`, color:locked?'#fbbf24':'#44445a', borderRadius:10, padding:'9px 18px', cursor:'pointer', fontSize:13, fontWeight:600, transition:'all .2s' }}>
+                {locked?'🔒 Locked':'🔓 Lock Room'}
+              </button>
             </div>
-          )}
-        </div>
 
-        {/* ── Error ── */}
-        {error && (
-          <div className="fade-in" style={{
-            background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)',
-            borderRadius:'var(--r)', padding:'10px 14px', fontSize:13, color:'#f87171', marginBottom:16,
-          }}>⚠ {error}</div>
+            {error && <ErrorBar msg={error} />}
+
+            <div style={{ display:'flex', gap:10, flexWrap:'wrap', marginBottom:10 }}>
+              <ActionBtn primary icon="💬" label="Open Chat Room" sublabel="Twitch + Kick combined" onClick={()=>handleOpen(false)} />
+              <ActionBtn icon="🎛" label="Open Dashboard" sublabel="Stream player + analytics" onClick={()=>handleOpen(true)} />
+              <ActionBtn icon={inviteCopied?'✅':'🔗'} label={inviteCopied?'Copied!':'Copy Invite Link'} sublabel="Send to co-streamer" onClick={handleCopyInvite} style={inviteCopied?{borderColor:'rgba(34,197,94,0.3)'}:{}} />
+            </div>
+          </>
         )}
 
-        {/* ── Action buttons ── */}
-        <div style={{ display:'flex', gap:12, marginBottom:32 }}>
-          <button onClick={handleGo} style={{
-            flex:1, background:'linear-gradient(135deg, #9147ff, #6441a5)',
-            color:'#fff', border:'none', borderRadius:'var(--r)', padding:'13px 20px',
-            fontSize:15, fontWeight:700, cursor:'pointer',
-            boxShadow:'0 4px 20px rgba(145,71,255,0.35)',
-            transition:'opacity .15s, transform .15s',
-          }}
-            onMouseOver={e => e.currentTarget.style.opacity = '0.9'}
-            onMouseOut={e  => e.currentTarget.style.opacity = '1'}
-          >
-            Open Chat Room →
-          </button>
-          <button onClick={handleCopy} style={{
-            flex:1, background: copied ? 'rgba(34,197,94,0.12)' : 'var(--surface)',
-            color: copied ? 'var(--success)' : 'var(--text)',
-            border: `1px solid ${copied ? 'rgba(34,197,94,0.3)' : 'var(--border2)'}`,
-            borderRadius:'var(--r)', padding:'13px 20px', fontSize:15, fontWeight:600, cursor:'pointer',
-            transition:'all .2s',
-          }}>
-            {copied ? '✓ Copied!' : '🔗 Copy Share Link'}
-          </button>
+        {/* Join */}
+        <div style={{ display:'flex', alignItems:'center', gap:16, margin:'28px 0 22px' }}>
+          <div style={{ flex:1, height:1, background:'rgba(255,255,255,0.04)' }} />
+          <span style={{ fontSize:11, color:'#1a1a2e', fontWeight:700 }}>OR JOIN AN EXISTING ROOM</span>
+          <div style={{ flex:1, height:1, background:'rgba(255,255,255,0.04)' }} />
+        </div>
+        <div style={{ background:'linear-gradient(135deg,#0f0f1c,#0a0a14)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:16, padding:'20px 22px' }}>
+          <div style={{ fontSize:13, fontWeight:700, color:'#33334a', marginBottom:12 }}>Paste a room link or invite link</div>
+          <div style={{ display:'flex', gap:10 }}>
+            <input value={joinUrl} onChange={e=>{setJoinUrl(e.target.value);setJoinErr('')}} onKeyDown={e=>e.key==='Enter'&&handleJoin()}
+              placeholder="https://..."
+              style={{ flex:1, background:'#08080f', border:'1px solid rgba(255,255,255,0.07)', borderRadius:10, padding:'11px 14px', fontSize:13, color:'#eeeef5', outline:'none' }}
+              onFocus={e=>e.target.style.borderColor='rgba(145,71,255,0.4)'}
+              onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.07)'}
+            />
+            <button onClick={handleJoin} style={{ background:'rgba(145,71,255,0.1)', border:'1px solid rgba(145,71,255,0.25)', color:'#c084fc', borderRadius:10, padding:'11px 22px', fontSize:13, fontWeight:700, cursor:'pointer', flexShrink:0 }}>Join →</button>
+          </div>
+          {joinErr && <div style={{ marginTop:8, fontSize:12, color:'#f87171' }}>⚠ {joinErr}</div>}
         </div>
 
-        {/* ── Join existing room ── */}
-        <div style={{
-          borderTop:'1px solid var(--border)', paddingTop:28,
-        }}>
-          <div style={{ textAlign:'center', marginBottom:16 }}>
-            <span style={{ fontSize:13, color:'var(--dim)', background:'var(--bg)', padding:'0 12px' }}>
-              or join an existing room
-            </span>
-          </div>
-          <div style={{ display:'flex', gap:10 }}>
-            <input
-              value={joinUrl}
-              onChange={e => { setJoinUrl(e.target.value); setJoinErr('') }}
-              placeholder="Paste a room link here…"
-              onKeyDown={e => e.key === 'Enter' && handleJoin()}
-              style={{
-                flex:1, background:'var(--surface)', border:'1px solid var(--border2)',
-                borderRadius:'var(--r)', padding:'10px 14px', fontSize:13, outline:'none',
-              }}
-              onFocus={e => e.target.style.borderColor = 'var(--border2)'}
-            />
-            <button onClick={handleJoin} style={{
-              background:'var(--surface2)', border:'1px solid var(--border2)',
-              color:'var(--text)', borderRadius:'var(--r)', padding:'10px 18px',
-              fontSize:13, fontWeight:600, cursor:'pointer',
-            }}>Join →</button>
-          </div>
-          {joinErr && (
-            <div style={{ marginTop:8, fontSize:12, color:'#f87171' }}>⚠ {joinErr}</div>
-          )}
-          <p style={{ marginTop:12, fontSize:12, color:'var(--dim)', textAlign:'center', lineHeight:1.6 }}>
-            Anyone with the share link can open the room — no account needed.
-          </p>
+        {/* Footer */}
+        <div style={{ marginTop:36, display:'flex', alignItems:'center', justifyContent:'center', gap:22, flexWrap:'wrap' }}>
+          {[['🟣','Twitch'],['🟢','Kick'],['✖','X (Twitter)'],['🤖','C3PO AI'],['📊','Polymarket'],['📈','Markets']].map(([ic,lb])=>(
+            <div key={lb} style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, color:'#1a1a2e' }}><span>{ic}</span><span style={{ fontWeight:600 }}>{lb}</span></div>
+          ))}
         </div>
       </div>
     </div>
