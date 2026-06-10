@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Market Bubble — X Chat Bridge",
+  "version": "1.0.0",
+  "description": "Reads the X (Twitter) live chat on x.com and forwards each message to your Market Bubble dashboard so it merges into the combined chat.",
+  "permissions": ["tabs"],
+  "host_permissions": [
+    "https://x.com/*",
+    "https://twitter.com/*",
+    "https://*.vercel.app/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://x.com/*", "https://twitter.com/*"],
+      "js": ["x-content.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://*.vercel.app/*", "http://localhost/*", "http://127.0.0.1/*"],
+      "js": ["dash-content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

@@ -59,6 +59,21 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
     return () => { alive = false; clearTimeout(timer) }
   }, [xAuth?.token])
 
+  // ── X chat from the browser extension (window.postMessage bridge) ───────────
+  // The "Market Bubble X Chat" extension scrapes x.com/<user>/livechat and posts
+  // each line here as { type:'mb_x_chat', id, username, message, streamer }.
+  useEffect(() => {
+    function onMsg(e) {
+      const d = e.data
+      if (!d || d.type !== 'mb_x_chat' || !d.message) return
+      const id = 'xc_' + (d.id || (d.username || '') + ':' + d.message)
+      setMsgs(prev => prev.some(m => m.id === id) ? prev
+        : [...prev.slice(-399), { id, platform: 'x', streamer: d.streamer || 'X', username: d.username || 'X', message: d.message, userColor: '#cbd5e1' }])
+    }
+    window.addEventListener('message', onMsg)
+    return () => window.removeEventListener('message', onMsg)
+  }, [])
+
   useEffect(() => { if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight }, [msgs])
 
   async function handleSend() {
@@ -154,7 +169,7 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
                 <div key={msg.id} style={{ padding: '4px 12px', fontSize: 12.5, lineHeight: 1.5 }}
                   onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
                   onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
-                  <span style={{ fontSize: 8, color: pc, fontWeight: 800, textTransform: 'uppercase', marginRight: 5, background: pc + '22', borderRadius: 3, padding: '1px 4px' }}>{msg.platform[0]}</span>
+                  <span style={{ fontSize: 9, color: pc, fontWeight: 700, marginRight: 5, background: pc + '1e', border: `1px solid ${pc}33`, borderRadius: 4, padding: '0 5px', whiteSpace: 'nowrap' }}>{msg.platform === 'twitch' ? '🟣' : msg.platform === 'kick' ? '🟢' : '✖'} {msg.streamer}</span>
                   <span style={{ fontWeight: 700, color: uc, marginRight: 4 }}>{msg.username}</span>
                   <span style={{ color: '#c0c0d8' }}>{msg.message}</span>
                 </div>

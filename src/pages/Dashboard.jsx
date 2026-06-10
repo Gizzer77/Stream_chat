@@ -4,7 +4,7 @@ import MarketTicker from '../components/MarketTicker'
 import Panel        from '../components/Panel'
 import StreamPlayer from '../components/StreamPlayer'
 import CombinedChat from '../components/CombinedChat'
-import ViewerCounts from '../components/ViewerCounts'
+import ViewerBar    from '../components/ViewerBar'
 import Polymarket   from '../components/Polymarket'
 import C3POWidget   from '../components/C3POWidget'
 import SettingsModal from '../components/SettingsModal'
@@ -16,7 +16,7 @@ const PANEL_META = {
   polymarket: { title: 'Polymarket',         icon: '📊', accent: '#3b82f6', flexBasis: '1 1 320px', height: 320 },
   c3po:       { title: 'C-3PO Assistant',    icon: '🤖', accent: '#ffd700', flexBasis: '2 1 480px', height: 340 },
 }
-const PANEL_ORDER = ['stream', 'chat', 'viewers', 'polymarket', 'c3po']
+const PANEL_ORDER = ['stream', 'chat', 'polymarket', 'c3po']
 
 export default function Dashboard() {
   const config    = parseConfig()
@@ -153,7 +153,6 @@ export default function Dashboard() {
     switch (id) {
       case 'stream':     return <StreamPlayer sources={sources} />
       case 'chat':       return <CombinedChat sources={sources} twitchAuth={twitchAuth} xAuth={xAuth} kickAuth={kickAuth} onOpenSettings={() => setSettingsTab('sources')} />
-      case 'viewers':    return <ViewerCounts sources={sources} />
       case 'polymarket': return <Polymarket defaultQuery={cfg.polyQ} limit={cfg.polyLimit} />
       case 'c3po':       return <C3POWidget provider={cfg.c3poProvider} apiKey={cfg.c3poApiKey} onOpenSettings={() => setSettingsTab('c3po')} />
       default: return null
@@ -182,6 +181,9 @@ export default function Dashboard() {
           {xAuth      && chip('#cbd5e1', 'rgba(226,232,240,0.08)', 'rgba(226,232,240,0.2)', `✖ @${xAuth.username || 'connected'}`)}
         </div>
 
+        {/* Live viewer counts (moved into the top bar) */}
+        <div style={{ flex: '1 1 220px', minWidth: 0, overflowX: 'auto' }}><ViewerBar sources={sources} /></div>
+
         {/* Show hidden panels */}
         {hiddenPanels.map(id => (
           <button key={id} onClick={() => setPanel(id, true)} style={lightBtn}>+ {PANEL_META[id].title}</button>
@@ -205,11 +207,8 @@ export default function Dashboard() {
       <div style={{ flex: 1, display: 'flex', gap: 14, padding: 14, overflow: 'hidden', minHeight: 0 }}>
         {/* LEFT / MAIN: stream (smaller) + small viewers top-right, then big C-3PO + Polymarket */}
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto' }}>
-          {(show('stream') || show('viewers')) && (
-            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap', flexShrink: 0 }}>
-              {show('stream')  && <div style={{ flex: '3 1 320px', height: 'clamp(280px, 40vh, 440px)' }}>{P('stream')}</div>}
-              {show('viewers') && <div style={{ flex: '1 1 200px', maxWidth: 280, height: 230 }}>{P('viewers')}</div>}
-            </div>
+          {show('stream') && (
+            <div style={{ height: 'clamp(300px, 44vh, 500px)', flexShrink: 0 }}>{P('stream')}</div>
           )}
           {(show('c3po') || show('polymarket')) && (
             <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', flexShrink: 0 }}>
