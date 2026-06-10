@@ -13,27 +13,10 @@ export default function ViewerCounts({ sources }) {
       const out = {}
       for (const s of channels) {
         if (s.platform === 'twitch') {
-          const token = localStorage.getItem('twitch_token') || ''
-          const clientId = import.meta.env.VITE_TWITCH_CLIENT_ID || localStorage.getItem('twitch_client_id') || ''
-          let done = false
-          if (token && clientId) {
-            // Twitch Helix supports CORS — query directly with the logged-in
-            // user's token so no server-side secret is needed.
-            try {
-              const r = await fetch(`https://api.twitch.tv/helix/streams?user_login=${encodeURIComponent(s.channel)}`, { headers: { Authorization: `Bearer ${token}`, 'Client-Id': clientId } })
-              if (r.ok) {
-                const d = await r.json(); const st = d.data?.[0]
-                out[`tw_${s.channel}`] = { platform: 'twitch', name: s.channel, viewers: st?.viewer_count || 0, live: !!st, title: st?.title || '' }
-                done = true
-              }
-            } catch (_) {}
-          }
-          if (!done) {
-            try {
-              const r = await fetch(`/api/viewer-counts?platform=twitch&channel=${encodeURIComponent(s.channel)}`)
-              if (r.ok) out[`tw_${s.channel}`] = { platform: 'twitch', name: s.channel, ...(await r.json()) }
-            } catch (_) {}
-          }
+          try {
+            const r = await fetch(`/api/viewer-counts?platform=twitch&channel=${encodeURIComponent(s.channel)}`)
+            if (r.ok) out[`tw_${s.channel}`] = { platform: 'twitch', name: s.channel, ...(await r.json()) }
+          } catch (_) {}
         } else if (s.platform === 'kick') {
           try {
             const r = await fetch(`https://kick.com/api/v1/channels/${encodeURIComponent(s.channel)}`, { headers: { Accept: 'application/json' } })
@@ -52,7 +35,7 @@ export default function ViewerCounts({ sources }) {
   const total = all.reduce((s, e) => s + (e.viewers || 0), 0)
   const liveCount = all.filter(e => e.live).length
   const peak = Math.max(1, ...all.map(e => e.viewers || 0))
-  const twNote = all.find(e => e.platform === 'twitch' && e.note)?.note
+  const twNote = all.find(e => e.platform === 'twitch' && (e.note || e.error))?.note || all.find(e => e.platform === 'twitch' && e.error)?.error
 
   const entries = useMemo(() => {
     let list = all.slice()
