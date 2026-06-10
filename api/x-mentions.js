@@ -19,7 +19,11 @@ export default async function handler(req, res) {
     const url = `https://api.twitter.com/2/users/${id}/mentions?max_results=20&tweet.fields=created_at&expansions=author_id&user.fields=username,name`
     const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
     const d = await r.json()
-    if (!r.ok) { res.status(400).json({ error: d.detail || d.title || `mentions ${r.status}` }); return }
+    if (!r.ok) {
+      let msg = d.detail || d.title || `mentions ${r.status}`
+      if (r.status === 403 || r.status === 453 || r.status === 429) msg += ' — reading X mentions needs an elevated (paid) X API plan; the free tier only allows posting.'
+      res.status(400).json({ error: msg }); return
+    }
 
     const users = {}
     ;(d.includes?.users || []).forEach(u => { users[u.id] = u })

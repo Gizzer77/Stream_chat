@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 
 // Live viewer counts for Twitch + Kick with filtering, search and sorting.
 export default function ViewerCounts({ sources }) {
-  const channels = (sources || []).filter(s => s.platform === 'twitch' || s.platform === 'kick')
+  const channels = (sources || []).filter(s => (s.platform === 'twitch' || s.platform === 'kick') && s.channel && s.channel.toLowerCase() !== 'connected')
   const [counts, setCounts] = useState({})
   const [filter, setFilter] = useState('all')   // all | twitch | kick | live
   const [q,      setQ]      = useState('')
@@ -35,6 +35,7 @@ export default function ViewerCounts({ sources }) {
   const total = all.reduce((s, e) => s + (e.viewers || 0), 0)
   const liveCount = all.filter(e => e.live).length
   const peak = Math.max(1, ...all.map(e => e.viewers || 0))
+  const twNote = all.find(e => e.platform === 'twitch' && e.note)?.note
 
   const entries = useMemo(() => {
     let list = all.slice()
@@ -78,6 +79,9 @@ export default function ViewerCounts({ sources }) {
           style={{ marginLeft: 'auto', width: 90, background: '#0a0a0f', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, padding: '4px 8px', fontSize: 11, color: '#eeeef5', outline: 'none' }} />
       </div>
 
+      {twNote && (
+        <div style={{ flexShrink: 0, padding: '5px 10px', fontSize: 10.5, color: '#fbbf24', background: 'rgba(251,191,36,0.08)', borderBottom: '1px solid rgba(251,191,36,0.18)' }}>🟣 {twNote}</div>
+      )}
       {/* List */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 7 }}>
         {entries.length === 0 ? (

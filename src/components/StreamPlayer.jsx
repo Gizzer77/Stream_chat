@@ -30,11 +30,25 @@ export default function StreamPlayer({ streamers }) {
     if (tm) { setActive({ platform: 'twitch', channel: tm[1] }); return }
     const km = v.match(/kick\.com\/([a-zA-Z0-9_]+)/)
     if (km) { setActive({ platform: 'kick', channel: km[1] }); return }
+    const xb = v.match(/x\.com\/(?:i\/)?broadcasts\/([A-Za-z0-9]+)/i) || v.match(/twitter\.com\/i\/broadcasts\/([A-Za-z0-9]+)/i)
+    if (xb) { setActive({ platform: 'x', url: v.startsWith('http') ? v : `https://${v}`, channel: 'X Broadcast' }); return }
     if (/^[a-zA-Z0-9_]{3,25}$/.test(v)) { setActive({ platform: 'twitch', channel: v }); return }
-    setActive({ platform: 'other', url: v })
+    setActive({ platform: 'other', url: v.startsWith('http') ? v : `https://${v}` })
   }
 
   const domain = typeof window !== 'undefined' ? window.location.hostname : 'localhost'
+
+  if (active && active.platform === 'x') {
+    return (
+      <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: 24, textAlign: 'center', background: 'radial-gradient(ellipse at 50% 30%, rgba(226,232,240,0.06), transparent 70%)' }}>
+        <div style={{ fontSize: 40 }}>✖</div>
+        <div style={{ fontSize: 14, fontWeight: 800, color: '#e8e8f5' }}>X Broadcast</div>
+        <div style={{ fontSize: 12, color: '#8a8aa5', maxWidth: 320, lineHeight: 1.6 }}>X blocks embedding its player, so broadcasts open on X in a new tab.</div>
+        <a href={active.url} target="_blank" rel="noreferrer" style={{ background: 'linear-gradient(135deg,#1d9bf0,#0f6fb8)', color: '#fff', textDecoration: 'none', borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700 }}>Watch on X ↗</a>
+        <button onClick={() => setActive(null)} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: '#ccc', borderRadius: 9, padding: '7px 14px', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>⬅ Change</button>
+      </div>
+    )
+  }
 
   if (active) {
     const src = active.platform === 'twitch'
@@ -94,7 +108,7 @@ export default function StreamPlayer({ streamers }) {
       )}
       <div style={{ display: 'flex', gap: 8, width: '100%', maxWidth: 360 }}>
         <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && loadFromInput()}
-          placeholder="twitch.tv/channel  or  kick.com/channel"
+          placeholder="twitch.tv/… · kick.com/… · x.com/i/broadcasts/…"
           style={{ flex: 1, background: '#0a0a0f', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '9px 13px', fontSize: 12, color: '#eeeef5', outline: 'none' }} />
         <button onClick={loadFromInput} style={{ background: 'linear-gradient(135deg,#9147ff,#6441a5)', color: '#fff', border: 'none', borderRadius: 10, padding: '9px 16px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Go</button>
       </div>

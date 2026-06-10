@@ -14,6 +14,7 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
 
   const [sendMsg,    setSendMsg]    = useState('')
   const [sendStatus, setSendStatus] = useState(null)
+  const [xNotice,    setXNotice]    = useState('')
 
   const myTwitchCh = localStorage.getItem('twitch_username') || ''
   const { ready: twSendReady, send: twSend } = useTwitchSend(twitchAuth?.token, twitchAuth?.username)
@@ -29,26 +30,35 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
   useTwitchChat(hookStreamers, add)
   useKickChat(hookStreamers, add)
 
-  // ── Read X mentions into the chat ──────────────────────────────────────────
+  // ── Read X mentions into the chat (free X tier can't, so we back off) ────────
   useEffect(() => {
     if (!xAuth?.token) return
-    let alive = true
+    let alive = true, failures = 0, timer
     async function poll() {
+      if (!alive) return
       try {
         const r = await fetch('/api/x-mentions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accessToken: xAuth.token }) })
         const d = await r.json()
-        if (!alive || !Array.isArray(d.messages)) { if (d?.error) dbg('X mentions error', { error: d.error }); return }
-        setMsgs(prev => {
-          const have = new Set(prev.filter(m => m.platform === 'x').map(m => m.id))
-          const fresh = d.messages.filter(m => !have.has('x_' + m.id)).reverse()
-            .map(m => ({ id: 'x_' + m.id, platform: 'x', username: m.username, message: m.text, userColor: '#cbd5e1' }))
-          return fresh.length ? [...prev.slice(-399), ...fresh] : prev
-        })
-      } catch (_) {}
+        if (!alive) return
+        if (Array.isArray(d.messages)) {
+          setXNotice('')
+          setMsgs(prev => {
+            const have = new Set(prev.filter(m => m.platform === 'x').map(m => m.id))
+            const fresh = d.messages.filter(m => !have.has('x_' + m.id)).reverse()
+              .map(m => ({ id: 'x_' + m.id, platform: 'x', username: m.username, message: m.text, userColor: '#cbd5e1' }))
+            return fresh.length ? [...prev.slice(-399), ...fresh] : prev
+          })
+        } else {
+          failures++
+          setXNotice(d.error || 'X read unavailable')
+          dbg('X mentions error', { error: d.error })
+        }
+      } catch (e) { failures++ }
+      // Stop hammering once it's clear reading isn't allowed.
+      if (alive && failures < 2) timer = setTimeout(poll, 60000)
     }
     poll()
-    const t = setInterval(poll, 45000)
-    return () => { alive = false; clearInterval(t) }
+    return () => { alive = false; clearTimeout(timer) }
   }, [xAuth?.token])
 
   useEffect(() => { if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight }, [msgs])
@@ -111,6 +121,9 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
         <button onClick={onOpenSettings} style={{ marginLeft: 'auto', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, color: '#e8e8f5', fontSize: 10, cursor: 'pointer', padding: '3px 8px', fontWeight: 700 }}>⚙ Sources</button>
       </div>
 
+      {xNotice && (
+        <div style={{ flexShrink: 0, padding: '5px 10px', fontSize: 10.5, color: '#fbbf24', background: 'rgba(251,191,36,0.08)', borderBottom: '1px solid rgba(251,191,36,0.18)' }}>✖ X read: {xNotice}</div>
+      )}
       <div ref={chatRef} style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
         {visible.length === 0 && (
           <div style={{ padding: 24, textAlign: 'center', color: '#55556a', fontSize: 12 }}>

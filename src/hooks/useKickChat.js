@@ -5,7 +5,7 @@ const PUSHER_KEY = 'eb1d5f283081a78b932c'
 async function fetchChatroomId(channelName) {
   // Try the Vercel serverless proxy first (deployed), then fall back to direct (local dev)
   const attempts = [
-    () => fetch(`/api/kick-chatroom?channel=${encodeURIComponent(channelName)}`),
+    () => fetch(`/api/kick-chatroom?channel=${encodeURIComponent(channelName)}&token=${encodeURIComponent(localStorage.getItem('kick_token') || '')}`),
     () => fetch(`https://kick.com/api/v1/channels/${encodeURIComponent(channelName)}`, {
       headers: { 'Accept': 'application/json' }
     }),
