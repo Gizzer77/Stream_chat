@@ -1,5 +1,8 @@
-// X OAuth 2.0 PKCE token exchange
-// Requires X_CLIENT_ID + X_CLIENT_SECRET in Vercel env vars
+// X (Twitter) OAuth 2.0 PKCE token exchange
+// Supports BOTH client types:
+//   • PUBLIC client  (native/SPA app type — NO client secret)  → PKCE only, no Basic auth
+//   • CONFIDENTIAL   (web app — has a secret)                  → HTTP Basic auth
+// If X_CLIENT_SECRET is set we use Basic auth; otherwise we do a public exchange.
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -8,26 +11,36 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(200).end(); return }
   if (req.method !== 'POST') { res.status(405).end(); return }
 
-  const { code, codeVerifier, redirectUri } = req.body || {}
+  const { code, codeVerifier, redirectUri, clientId: bodyClientId } = req.body || {}
   if (!code || !codeVerifier || !redirectUri) {
     res.status(400).json({ error: 'Missing code, codeVerifier, or redirectUri' }); return
   }
 
-  const clientId     = process.env.X_CLIENT_ID
-  const clientSecret = process.env.X_CLIENT_SECRET
-  if (!clientId || !clientSecret) {
-    res.status(400).json({ error: 'Add X_CLIENT_ID and X_CLIENT_SECRET to your Vercel environment variables.' }); return
+  const clientId     = process.env.X_CLIENT_ID || bodyClientId
+  const clientSecret = process.env.X_CLIENT_SECRET || ''
+  if (!clientId) {
+    res.status(400).json({ error: 'Add X_CLIENT_ID to your environment variables.' }); return
   }
 
   try {
-    // Exchange code → tokens
+    const headers = { 'Content-Type': 'application/x-www-form-urlencoded' }
+    // Confidential clients authenticate with Basic auth.
+    // PUBLIC clients must NOT send Basic auth — doing so triggers
+    // "Value passed for the client id was invalid".
+    if (clientSecret) {
+      headers['Authorization'] = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`
+    }
+
     const tokenRes = await fetch('https://api.twitter.com/2/oauth2/token', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
-      },
-      body: new URLSearchParams({ code, grant_type: 'authorization_code', client_id: clientId, redirect_uri: redirectUri, code_verifier: codeVerifier }).toString(),
+      headers,
+      body: new URLSearchParams({
+        code,
+        grant_type: 'authorization_code',
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        code_verifier: codeVerifier,
+      }).toString(),
     })
     const tokenData = await tokenRes.json()
     if (!tokenRes.ok) {

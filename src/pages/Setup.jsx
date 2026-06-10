@@ -286,12 +286,17 @@ export default function Setup() {
     if (pendingTwitch) {
       localStorage.removeItem('twitch_pending_token')
       localStorage.setItem('twitch_token', pendingTwitch)
-      // Try to get username; fall back to 'connected' so auth is never silently lost
+      // Show "connected" in the UI immediately so it never looks stuck,
+      // then refine with the real Twitch login name in the background.
+      const immediate = localStorage.getItem('twitch_username') || 'connected'
+      localStorage.setItem('twitch_username', immediate)
+      setMyProfile(p => ({ ...p, twitchUsername: immediate }))
       const cid = ENV.twitchClientId || localStorage.getItem('twitch_client_id') || ''
       fetchTwitchUser(pendingTwitch, cid).then(username => {
-        const u = username || localStorage.getItem('twitch_username') || 'connected'
-        localStorage.setItem('twitch_username', u)
-        setMyProfile(p => ({ ...p, twitchUsername: u }))
+        if (username) {
+          localStorage.setItem('twitch_username', username)
+          setMyProfile(p => ({ ...p, twitchUsername: username }))
+        }
       })
     }
 
