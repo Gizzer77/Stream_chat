@@ -26,7 +26,11 @@ export default async function handler(req, res) {
     })
     const data = await r.json()
     if (!r.ok) {
-      res.status(400).json({ error: data.detail || data.title || JSON.stringify(data) }); return
+      let msg = data.detail || data.title || JSON.stringify(data)
+      if (r.status === 403) msg += ' — your X login may lack tweet.write; reconnect X.'
+      if (r.status === 429) msg = 'X rate limit hit (free tier caps daily posts). ' + msg
+      if (/duplicate/i.test(msg)) msg = 'X rejected a duplicate post (same text already tweeted).'
+      res.status(400).json({ error: msg }); return
     }
     res.status(200).json({ ok: true, id: data.data?.id })
   } catch (err) {

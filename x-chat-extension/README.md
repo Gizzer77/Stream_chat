@@ -13,9 +13,11 @@ combined chat tagged as ✖ X.
 
 ## Use
 1. Open your dashboard (the Vercel site) in one tab.
-2. Open the streamer's X live chat in another tab: `https://x.com/<username>/livechat`
-   (you can minimize it — it just has to stay open and logged in).
-3. Messages will start flowing into the combined chat as ✖ X.
+2. The dashboard already embeds the X live chat (from your X login). The
+   extension reads it **right there in the embed** — no separate window needed.
+   (If you prefer, you can also open `https://x.com/<username>/livechat` in its
+   own tab and keep it minimized; that works too.)
+3. Messages start flowing into the combined chat as ✖ X.
 
 ## Notes / tuning
 - Open the X tab's DevTools console; you'll see `[MB X] captured …` for each line it reads.

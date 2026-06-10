@@ -115,11 +115,20 @@ export default function SettingsModal({ cfg, room, onSave, onClose, initialTab =
                   <option value="qwen">Qwen</option>
                 </select>
               </div>
-              <div>
+              <div style={{ marginBottom: 16 }}>
                 <label style={labelStyle}>API Key</label>
                 <input type="password" value={draft.c3poApiKey} onChange={e => set('c3poApiKey', e.target.value)} placeholder="Paste your API key" style={inputStyle} />
                 <div style={{ fontSize: 11, color: '#8a8aa5', marginTop: 8 }}>Stored only in your browser. Needed for the C-3PO assistant to answer.</div>
               </div>
+              <div style={{ marginBottom: 16 }}>
+                <label style={labelStyle}>Wake word</label>
+                <input value={draft.c3poWakeWord} onChange={e => set('c3poWakeWord', e.target.value)} placeholder="hey c3po" style={inputStyle} />
+                <div style={{ fontSize: 11, color: '#8a8aa5', marginTop: 8 }}>Say this out loud followed by your question while listening is on.</div>
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                <input type="checkbox" checked={draft.c3poAutoSpeak} onChange={e => set('c3poAutoSpeak', e.target.checked)} style={{ width: 16, height: 16 }} />
+                <span style={{ fontSize: 13, color: '#eeeef5', fontWeight: 600 }}>Auto read answers aloud (text-to-speech)</span>
+              </label>
             </>
           )}
 

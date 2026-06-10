@@ -148,7 +148,9 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
             <button onClick={() => window.open(xLivechat.url, 'xchat', 'width=420,height=640')} style={{ ...miniBtn, color: '#1d9bf0', borderColor: 'rgba(29,155,240,0.4)', background: 'rgba(29,155,240,0.18)' }}>Pop out ↗</button>
           </div>
           {showXChat && (
-            <iframe src={xLivechat.url} title="X live chat" style={{ width: '100%', height: fullMode ? '100%' : 230, flex: fullMode ? 1 : 'none', border: 'none', background: '#000' }} />
+            <div style={{ flex: fullMode ? 1 : 'none', padding: fullMode ? 0 : '0 8px 8px', minHeight: 0, display: 'flex' }}>
+              <iframe src={xLivechat.url} title="X live chat" style={{ width: '100%', height: fullMode ? '100%' : 240, flex: fullMode ? 1 : 'none', border: '1px solid rgba(29,155,240,0.25)', borderRadius: fullMode ? 0 : 10, background: '#000' }} />
+            </div>
           )}
         </div>
       )}

@@ -154,7 +154,7 @@ export default function Dashboard() {
       case 'stream':     return <StreamPlayer sources={sources} />
       case 'chat':       return <CombinedChat sources={sources} twitchAuth={twitchAuth} xAuth={xAuth} kickAuth={kickAuth} onOpenSettings={() => setSettingsTab('sources')} />
       case 'polymarket': return <Polymarket defaultQuery={cfg.polyQ} limit={cfg.polyLimit} />
-      case 'c3po':       return <C3POWidget provider={cfg.c3poProvider} apiKey={cfg.c3poApiKey} onOpenSettings={() => setSettingsTab('c3po')} />
+      case 'c3po':       return <C3POWidget provider={cfg.c3poProvider} apiKey={cfg.c3poApiKey} wakeWord={cfg.c3poWakeWord} autoSpeak={cfg.c3poAutoSpeak} onOpenSettings={() => setSettingsTab('c3po')} />
       default: return null
     }
   }
@@ -208,7 +208,7 @@ export default function Dashboard() {
         {/* LEFT / MAIN: stream (smaller) + small viewers top-right, then big C-3PO + Polymarket */}
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto' }}>
           {show('stream') && (
-            <div style={{ height: 'clamp(300px, 44vh, 500px)', flexShrink: 0 }}>{P('stream')}</div>
+            <div style={{ height: 'clamp(220px, 32vh, 380px)', flexShrink: 0 }}>{P('stream')}</div>
           )}
           {(show('c3po') || show('polymarket')) && (
             <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', flexShrink: 0 }}>
