@@ -1,38 +1,48 @@
 import { useEffect, useRef } from 'react'
 import { dbg } from '../lib/dash'
 
-const PUSHER_KEY = 'eb1d5f283081a78b932c'
+// Kick's web client Pusher config.
+const PUSHER_KEY     = 'eb1d5f283081a78b932c'
+const PUSHER_CLUSTER = 'us2'
 
-async function fetchChatroomId(channelName, onStatus) {
+async function fetchChatroomId(channelName) {
+  // Browser-direct works (Cloudflare lets the real browser through); the server
+  // proxy gets 403'd, so try direct FIRST and only fall back to the proxy.
   const attempts = [
-    () => fetch(`/api/kick-chatroom?channel=${encodeURIComponent(channelName)}&token=${encodeURIComponent(localStorage.getItem('kick_token') || '')}`),
+    () => fetch(`https://kick.com/api/v2/channels/${encodeURIComponent(channelName)}`, { headers: { Accept: 'application/json' } }),
     () => fetch(`https://kick.com/api/v1/channels/${encodeURIComponent(channelName)}`, { headers: { Accept: 'application/json' } }),
+    () => fetch(`/api/kick-chatroom?channel=${encodeURIComponent(channelName)}&token=${encodeURIComponent(localStorage.getItem('kick_token') || '')}`),
   ]
   let lastErr = ''
   for (const attempt of attempts) {
     try {
       const res = await attempt()
+      if (!res.ok) { lastErr = `status ${res.status}`; continue }
       const data = await res.json().catch(() => ({}))
-      if (!res.ok) { lastErr = data.error || `status ${res.status}`; dbg('KICK lookup fail', { channel: channelName, status: res.status, error: lastErr }); continue }
-      const id = data.chatroomId ?? data.chatroom?.id
+      const id = data.chatroom?.id ?? data.chatroomId ?? data.data?.chatroom?.id
       if (id) { dbg('KICK chatroom id', { channel: channelName, id }); return id }
-      lastErr = 'no chatroom id in response'
+      lastErr = 'no chatroom id'
     } catch (e) { lastErr = e.message }
   }
-  throw new Error(lastErr || `Could not get chatroom ID for ${channelName}`)
+  throw new Error(lastErr || `lookup failed for ${channelName}`)
 }
 
 function connectPusher(chatroomId, streamerName, onMessage, onClose) {
-  const url = `wss://ws-us2.pusher.com/app/${PUSHER_KEY}?protocol=7&client=js&version=7.6.0&flash=false`
+  const url = `wss://ws-${PUSHER_CLUSTER}.pusher.com/app/${PUSHER_KEY}?protocol=7&client=js&version=8.4.0&flash=false`
   const ws = new WebSocket(url)
-  ws.onopen = () => {
-    dbg('KICK pusher open', { chatroomId })
-    ws.send(JSON.stringify({ event: 'pusher:subscribe', data: { auth: '', channel: `chatrooms.${chatroomId}.v2` } }))
-  }
+  let established = false
   ws.onmessage = (e) => {
-    try {
-      const msg = JSON.parse(e.data)
-      if (msg.event === 'App\\Events\\ChatMessageEvent') {
+    let msg
+    try { msg = JSON.parse(e.data) } catch (_) { return }
+    if (msg.event === 'pusher:connection_established') {
+      established = true
+      dbg('KICK pusher established — subscribing', { chatroomId })
+      ws.send(JSON.stringify({ event: 'pusher:subscribe', data: { auth: '', channel: `chatrooms.${chatroomId}.v2` } }))
+      return
+    }
+    if (msg.event === 'pusher:error') { dbg('KICK pusher error', { data: msg.data }); return }
+    if (msg.event === 'App\\Events\\ChatMessageEvent') {
+      try {
         const payload = JSON.parse(msg.data)
         onMessage({
           id: payload.id || Math.random().toString(36).slice(2),
@@ -40,11 +50,11 @@ function connectPusher(chatroomId, streamerName, onMessage, onClose) {
           username: payload.sender?.username || 'Unknown',
           message: payload.content, userColor: payload.sender?.identity?.color || null, ts: Date.now(),
         })
-      }
-    } catch (_) {}
+      } catch (_) {}
+    }
   }
-  ws.onclose = onClose
-  ws.onerror = () => { dbg('KICK pusher error'); ws.close() }
+  ws.onclose = (e) => { dbg('KICK pusher closed', { code: e.code, reason: e.reason || '(none)', established }); onClose(established) }
+  ws.onerror = () => {}
   return ws
 }
 
@@ -59,22 +69,25 @@ export function useKickChat(streamers, onMessage, onStatus) {
     let alive = true
 
     async function connectChannel(ch, tries = 0) {
+      if (!alive) return
       try {
         onStatusRef.current?.({ state: 'connecting', channel: ch.channel })
-        dbg('KICK connecting', { channel: ch.channel })
         const chatroomId = await fetchChatroomId(ch.channel)
         if (!alive) return
         onStatusRef.current?.({ state: 'live', channel: ch.channel })
-        const ws = connectPusher(chatroomId, ch.streamer, m => onMessageRef.current(m), () => {
+        const ws = connectPusher(chatroomId, ch.streamer, m => onMessageRef.current(m), (wasEstablished) => {
           if (!alive) return
-          dbg('KICK pusher closed — reconnecting', { channel: ch.channel })
-          setTimeout(() => connectChannel(ch), 8000)
+          // If it never established, the app key/origin was rejected — back off hard
+          // to avoid a reconnect storm. A real drop reconnects sooner.
+          const delay = wasEstablished ? 6000 : 60000
+          if (!wasEstablished) onStatusRef.current?.({ state: 'blocked', channel: ch.channel, error: 'Kick chat socket was rejected (Pusher).' })
+          setTimeout(() => connectChannel(ch), delay)
         })
         sockets.push(ws)
       } catch (err) {
         dbg('KICK connect failed', { channel: ch.channel, error: err.message })
         onStatusRef.current?.({ state: 'blocked', channel: ch.channel, error: err.message })
-        if (alive && tries < 3) setTimeout(() => connectChannel(ch, tries + 1), 15000)
+        if (alive && tries < 3) setTimeout(() => connectChannel(ch, tries + 1), 20000)
       }
     }
 
