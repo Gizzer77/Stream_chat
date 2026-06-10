@@ -4,7 +4,9 @@ import { useKickChat }   from '../hooks/useKickChat'
 import { useTwitchSend } from '../hooks/useTwitchSend'
 import { PLAT, dbg } from '../lib/dash'
 
-// Combined read + send across Twitch, X and Kick. Sources come from settings.
+// Combined read + send across Twitch, X and Kick.
+//  - Reads: Twitch IRC, Kick chat, and X mentions (polled via /api/x-mentions)
+//  - Sends: Twitch IRC, X tweet, Kick chat
 export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onOpenSettings }) {
   const [msgs,   setMsgs]   = useState([])
   const [filter, setFilter] = useState('all')
@@ -18,7 +20,6 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
   const xReady    = !!xAuth?.token
   const kickReady = !!kickAuth?.token
 
-  // Read streams
   const hookStreamers = (sources || []).map(s => ({
     name: s.label || s.channel,
     twitch: s.platform === 'twitch' ? s.channel : '',
@@ -27,6 +28,28 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
   const add = useCallback(msg => setMsgs(p => [...p.slice(-399), msg]), [])
   useTwitchChat(hookStreamers, add)
   useKickChat(hookStreamers, add)
+
+  // ── Read X mentions into the chat ──────────────────────────────────────────
+  useEffect(() => {
+    if (!xAuth?.token) return
+    let alive = true
+    async function poll() {
+      try {
+        const r = await fetch('/api/x-mentions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accessToken: xAuth.token }) })
+        const d = await r.json()
+        if (!alive || !Array.isArray(d.messages)) { if (d?.error) dbg('X mentions error', { error: d.error }); return }
+        setMsgs(prev => {
+          const have = new Set(prev.filter(m => m.platform === 'x').map(m => m.id))
+          const fresh = d.messages.filter(m => !have.has('x_' + m.id)).reverse()
+            .map(m => ({ id: 'x_' + m.id, platform: 'x', username: m.username, message: m.text, userColor: '#cbd5e1' }))
+          return fresh.length ? [...prev.slice(-399), ...fresh] : prev
+        })
+      } catch (_) {}
+    }
+    poll()
+    const t = setInterval(poll, 45000)
+    return () => { alive = false; clearInterval(t) }
+  }, [xAuth?.token])
 
   useEffect(() => { if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight }, [msgs])
 
@@ -42,16 +65,13 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
     if (xReady) {
       try {
         const r = await fetch('/api/x-tweet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, accessToken: xAuth.token }) })
-        const d = await r.json()
-        if (r.ok) ok.push('X'); else failed.push(`X: ${d.error}`)
+        const d = await r.json(); if (r.ok) ok.push('X'); else failed.push(`X: ${d.error}`)
       } catch (e) { failed.push(`X: ${e.message}`) }
     }
-
     if (kickReady) {
       try {
         const r = await fetch('/api/kick-send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: text, accessToken: kickAuth.token }) })
-        const d = await r.json()
-        if (r.ok) ok.push('Kick'); else failed.push(`Kick: ${d.error}`)
+        const d = await r.json(); if (r.ok) ok.push('Kick'); else failed.push(`Kick: ${d.error}`)
       } catch (e) { failed.push(`Kick: ${e.message}`) }
     }
 
@@ -67,18 +87,22 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
   const visible = msgs.filter(m => filter === 'all' || m.platform === filter)
   const twCount = msgs.filter(m => m.platform === 'twitch').length
   const kkCount = msgs.filter(m => m.platform === 'kick').length
+  const xCount  = msgs.filter(m => m.platform === 'x').length
   const targets = [twSendReady && 'Twitch', xReady && 'X', kickReady && 'Kick'].filter(Boolean)
+
+  const tabs = [
+    { key: 'all',    label: `All ${msgs.length}`, color: '#c8c8e0' },
+    { key: 'twitch', label: `🟣 ${twCount}`,       color: '#9147ff' },
+    { key: 'kick',   label: `🟢 ${kkCount}`,       color: '#53fc18' },
+    { key: 'x',      label: `✖ ${xCount}`,         color: '#cbd5e1' },
+  ]
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderBottom: '1px solid rgba(255,255,255,0.05)', flexShrink: 0 }}>
-        {[
-          { key: 'all', label: `All (${msgs.length})`, color: '#c8c8e0' },
-          { key: 'twitch', label: `🟣 ${twCount}`, color: '#9147ff' },
-          { key: 'kick', label: `🟢 ${kkCount}`, color: '#53fc18' },
-        ].map(tab => (
+        {tabs.map(tab => (
           <button key={tab.key} onClick={() => setFilter(tab.key)} style={{
-            padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+            padding: '3px 9px', borderRadius: 20, fontSize: 11, fontWeight: 700, cursor: 'pointer',
             background: filter === tab.key ? tab.color + '22' : 'transparent',
             color: filter === tab.key ? tab.color : '#8a8aa5',
             border: `1px solid ${filter === tab.key ? tab.color + '55' : 'transparent'}`,
@@ -90,7 +114,7 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
       <div ref={chatRef} style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
         {visible.length === 0 && (
           <div style={{ padding: 24, textAlign: 'center', color: '#55556a', fontSize: 12 }}>
-            {(sources || []).length === 0 ? 'Add chat sources in Settings ⚙' : 'Waiting for messages…'}
+            {(sources || []).length === 0 && !xReady ? 'Add chat sources in Settings ⚙' : 'Waiting for messages…'}
           </div>
         )}
         {visible.map(msg => {

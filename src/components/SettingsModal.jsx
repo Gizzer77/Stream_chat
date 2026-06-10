@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { parseSourceInput, PLAT } from '../lib/dash'
 
 const TABS = [
-  { key: 'general',    label: '⚙ General' },
   { key: 'sources',    label: '💬 Chat Sources' },
   { key: 'c3po',       label: '🤖 C-3PO' },
   { key: 'polymarket', label: '📊 Polymarket' },
@@ -11,11 +10,11 @@ const TABS = [
 const inputStyle = { width: '100%', background: '#0a0a0f', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 9, padding: '9px 12px', fontSize: 13, color: '#eeeef5', outline: 'none', boxSizing: 'border-box' }
 const labelStyle = { fontSize: 11, fontWeight: 700, color: '#c8c8e0', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, display: 'block' }
 
-export default function SettingsModal({ cfg, onSave, onClose, initialTab = 'general' }) {
-  const [tab, setTab]   = useState(initialTab)
+export default function SettingsModal({ cfg, onSave, onClose, initialTab = 'sources' }) {
+  const valid = TABS.some(t => t.key === initialTab) ? initialTab : 'sources'
+  const [tab, setTab]     = useState(valid)
   const [draft, setDraft] = useState(() => ({ ...cfg }))
   const [srcInput, setSrcInput] = useState('')
-  const origin = window.location.origin
   const set = (k, v) => setDraft(d => ({ ...d, [k]: v }))
 
   function addSource() {
@@ -30,12 +29,10 @@ export default function SettingsModal({ cfg, onSave, onClose, initialTab = 'gene
     <div style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={{ background: '#0e0e1c', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 18, width: 540, maxWidth: '94vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 60px rgba(0,0,0,0.7)' }}>
-        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px 12px' }}>
           <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>Settings</div>
           <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#e8e8f5', fontSize: 16, cursor: 'pointer', borderRadius: 8, padding: '2px 9px' }}>✕</button>
         </div>
-        {/* Tabs */}
         <div style={{ display: 'flex', gap: 6, padding: '0 22px', flexWrap: 'wrap' }}>
           {TABS.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)} style={{
@@ -47,23 +44,7 @@ export default function SettingsModal({ cfg, onSave, onClose, initialTab = 'gene
           ))}
         </div>
 
-        {/* Body */}
         <div style={{ padding: '18px 22px', overflowY: 'auto', flex: 1 }}>
-          {tab === 'general' && (
-            <>
-              <div style={{ marginBottom: 18 }}>
-                <label style={labelStyle}>🟣 Twitch Client ID</label>
-                <code style={{ display: 'block', fontSize: 11, color: '#a78bfa', background: 'rgba(145,71,255,0.08)', borderRadius: 6, padding: '6px 10px', marginBottom: 8, wordBreak: 'break-all' }}>Redirect URI: {origin}/oauth/twitch</code>
-                <input value={draft.twClientId} onChange={e => set('twClientId', e.target.value)} placeholder="Twitch Client ID" style={inputStyle} />
-              </div>
-              <div>
-                <label style={labelStyle}>✖ X Client ID</label>
-                <code style={{ display: 'block', fontSize: 11, color: '#94a3b8', background: 'rgba(255,255,255,0.05)', borderRadius: 6, padding: '6px 10px', marginBottom: 8, wordBreak: 'break-all' }}>Callback URI: {origin}/oauth/x</code>
-                <input value={draft.xClientId} onChange={e => set('xClientId', e.target.value)} placeholder="X Client ID" style={inputStyle} />
-              </div>
-            </>
-          )}
-
           {tab === 'sources' && (
             <>
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, cursor: 'pointer' }}>
@@ -71,7 +52,7 @@ export default function SettingsModal({ cfg, onSave, onClose, initialTab = 'gene
                 <span style={{ fontSize: 13, color: '#eeeef5', fontWeight: 600 }}>Use my connected accounts + co-streamers</span>
               </label>
               <label style={labelStyle}>Custom chat sources</label>
-              <div style={{ fontSize: 11, color: '#8a8aa5', marginBottom: 10 }}>Add any Twitch or Kick channel by URL or name to pull its chat.</div>
+              <div style={{ fontSize: 11, color: '#8a8aa5', marginBottom: 10 }}>Add any Twitch or Kick channel by URL or name to pull its chat. Your connected X also feeds mentions in automatically.</div>
               {(draft.customSources || []).map((s, i) => {
                 const pc = PLAT[s.platform]?.color || '#888'
                 return (
@@ -124,7 +105,6 @@ export default function SettingsModal({ cfg, onSave, onClose, initialTab = 'gene
           )}
         </div>
 
-        {/* Footer */}
         <div style={{ padding: '14px 22px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', gap: 10 }}>
           <button onClick={onClose} style={{ flex: 1, background: 'rgba(255,255,255,0.06)', color: '#e8e8f5', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '11px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
           <button onClick={() => { onSave(draft); onClose() }} style={{ flex: 2, background: 'linear-gradient(135deg,#9147ff,#6441a5)', color: '#fff', border: 'none', borderRadius: 10, padding: '11px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Save Settings</button>

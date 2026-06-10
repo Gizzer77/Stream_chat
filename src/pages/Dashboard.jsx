@@ -69,7 +69,7 @@ export default function Dashboard() {
 
   function connectTwitch() {
     const clientId = cfg.twClientId || import.meta.env.VITE_TWITCH_CLIENT_ID || ''
-    if (!clientId) { setSettingsTab('general'); return }
+    if (!clientId) { alert('Client ID is not configured (check your VITE_ env vars).'); return }
     localStorage.setItem('twitch_oauth_return', window.location.href)
     const redirectUri = `${window.location.origin}/oauth/twitch`
     dbg('TWITCH connect (dashboard)', { redirectUri })
@@ -98,7 +98,7 @@ export default function Dashboard() {
 
   async function connectX() {
     const clientId = cfg.xClientId || import.meta.env.VITE_X_CLIENT_ID || ''
-    if (!clientId) { setSettingsTab('general'); return }
+    if (!clientId) { alert('Client ID is not configured (check your VITE_ env vars).'); return }
     const verifier = genCodeVerifier(), challenge = await genCodeChallenge(verifier)
     sessionStorage.setItem('x_code_verifier', verifier)
     localStorage.setItem('x_code_verifier_tmp', verifier)
@@ -120,6 +120,8 @@ export default function Dashboard() {
   const sources = effectiveSources(cfg, streamers)
   const visiblePanels = PANEL_ORDER.filter(id => cfg.panels[id] !== false)
   const hiddenPanels  = PANEL_ORDER.filter(id => cfg.panels[id] === false)
+  const show = id => cfg.panels[id] !== false
+  const P = id => { const m = PANEL_META[id]; return <Panel title={m.title} icon={m.icon} accent={m.accent} onHide={() => setPanel(id, false)}>{renderPanel(id)}</Panel> }
 
   function renderPanel(id) {
     switch (id) {
@@ -165,24 +167,31 @@ export default function Dashboard() {
         {!twitchAuth && <button onClick={connectTwitch} style={{ ...lightBtn, color: '#c084fc', background: 'rgba(145,71,255,0.14)', border: '1px solid rgba(145,71,255,0.35)' }}>🟣 Connect Twitch</button>}
         {!xAuth && <button onClick={connectX} disabled={connectingX} style={{ ...lightBtn, color: '#cbd5e1', background: 'rgba(226,232,240,0.08)', border: '1px solid rgba(226,232,240,0.25)' }}>{connectingX ? 'Connecting…' : '✖ Connect X'}</button>}
 
-        <button onClick={() => setSettingsTab('general')} style={lightBtn}>⚙ Settings</button>
+        <button onClick={() => setSettingsTab('sources')} style={lightBtn}>⚙ Settings</button>
         <button onClick={() => persistCfg({ ...cfg, panels: { stream: true, chat: true, viewers: true, polymarket: true, c3po: true } })} style={lightBtn}>Reset panels</button>
       </div>
 
-      {/* Auto-tiled panel grid — flex-wrap keeps panels from overlapping or
-          leaving the screen; the container scrolls vertically. */}
-      <div style={{ flex: 1, overflow: 'auto', padding: 14, display: 'flex', flexWrap: 'wrap', gap: 14, alignContent: 'flex-start' }}>
-        {visiblePanels.length === 0 && (
-          <div style={{ width: '100%', textAlign: 'center', color: '#55556a', fontSize: 13, padding: 40 }}>All panels hidden — add them back from the top bar.</div>
+      {/* Structured layout: Combined Chat fills the full height on the left;
+          the right column holds the stream, a viewers+markets row, and the
+          small C-3PO box. Flex sizing keeps panels from overlapping or
+          leaving the screen. */}
+      <div style={{ flex: 1, display: 'flex', gap: 14, padding: 14, overflow: 'hidden', minHeight: 0 }}>
+        {show('chat') && (
+          <div style={{ width: 'clamp(300px, 30%, 430px)', flexShrink: 0, height: '100%' }}>{P('chat')}</div>
         )}
-        {visiblePanels.map(id => {
-          const m = PANEL_META[id]
-          return (
-            <Panel key={id} title={m.title} icon={m.icon} accent={m.accent} flexBasis={m.flexBasis} height={m.height} onHide={() => setPanel(id, false)}>
-              {renderPanel(id)}
-            </Panel>
-          )
-        })}
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto' }}>
+          {show('stream') && <div style={{ height: 'clamp(320px, 50vh, 560px)', flexShrink: 0 }}>{P('stream')}</div>}
+          {(show('viewers') || show('polymarket')) && (
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', flexShrink: 0 }}>
+              {show('viewers')    && <div style={{ flex: '1 1 300px', height: 360 }}>{P('viewers')}</div>}
+              {show('polymarket') && <div style={{ flex: '1 1 320px', height: 360 }}>{P('polymarket')}</div>}
+            </div>
+          )}
+          {show('c3po') && <div style={{ height: 250, flexShrink: 0 }}>{P('c3po')}</div>}
+          {visiblePanels.length === 0 && (
+            <div style={{ textAlign: 'center', color: '#55556a', fontSize: 13, padding: 40 }}>All panels hidden — add them back from the top bar.</div>
+          )}
+        </div>
       </div>
 
       <style>{`

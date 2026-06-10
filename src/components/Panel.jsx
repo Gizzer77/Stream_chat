@@ -1,9 +1,9 @@
-// A contained dashboard panel. No dragging — the grid keeps panels from
-// overlapping or leaving the screen. Content scrolls inside.
-export default function Panel({ title, icon, accent = '#9147ff', onHide, flexBasis = '1 1 360px', height = 360, children }) {
+// A contained dashboard panel that fills its parent wrapper. The Dashboard
+// sizes each wrapper, so panels never overlap or leave the screen.
+export default function Panel({ title, icon, accent = '#9147ff', onHide, children }) {
   return (
     <div style={{
-      flex: flexBasis, minWidth: 0, height, display: 'flex', flexDirection: 'column',
+      width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
       background: 'rgba(10,10,22,0.97)', border: '1px solid rgba(255,255,255,0.08)',
       borderRadius: 16, overflow: 'hidden', boxShadow: `0 6px 30px rgba(0,0,0,0.5), 0 0 0 1px ${accent}18`,
     }}>

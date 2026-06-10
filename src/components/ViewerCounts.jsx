@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 
-// Live viewer counts for Twitch + Kick. (X has no public live-viewer API, so
-// per the spec we just show Twitch/Kick.)
+// Live viewer counts for Twitch + Kick with filtering, search and sorting.
 export default function ViewerCounts({ sources }) {
   const channels = (sources || []).filter(s => s.platform === 'twitch' || s.platform === 'kick')
   const [counts, setCounts] = useState({})
+  const [filter, setFilter] = useState('all')   // all | twitch | kick | live
+  const [q,      setQ]      = useState('')
 
   useEffect(() => {
     let alive = true
@@ -19,10 +20,7 @@ export default function ViewerCounts({ sources }) {
         } else if (s.platform === 'kick') {
           try {
             const r = await fetch(`https://kick.com/api/v1/channels/${encodeURIComponent(s.channel)}`, { headers: { Accept: 'application/json' } })
-            if (r.ok) {
-              const d = await r.json()
-              out[`kk_${s.channel}`] = { platform: 'kick', name: s.channel, viewers: d.livestream?.viewer_count ?? 0, live: !!d.livestream, title: d.livestream?.session_title || '' }
-            }
+            if (r.ok) { const d = await r.json(); out[`kk_${s.channel}`] = { platform: 'kick', name: s.channel, viewers: d.livestream?.viewer_count ?? 0, live: !!d.livestream, title: d.livestream?.session_title || '' } }
           } catch (_) {}
         }
       }
@@ -33,32 +31,79 @@ export default function ViewerCounts({ sources }) {
     return () => { alive = false; clearInterval(t) }
   }, [JSON.stringify(channels)])
 
-  const entries = Object.values(counts)
-  const total   = entries.reduce((s, e) => s + (e.viewers || 0), 0)
-  const liveCount = entries.filter(e => e.live).length
+  const all = Object.values(counts)
+  const total = all.reduce((s, e) => s + (e.viewers || 0), 0)
+  const liveCount = all.filter(e => e.live).length
+  const peak = Math.max(1, ...all.map(e => e.viewers || 0))
+
+  const entries = useMemo(() => {
+    let list = all.slice()
+    if (filter === 'live') list = list.filter(e => e.live)
+    else if (filter !== 'all') list = list.filter(e => e.platform === filter)
+    if (q.trim()) { const ql = q.toLowerCase(); list = list.filter(e => e.name.toLowerCase().includes(ql)) }
+    return list.sort((a, b) => (b.viewers || 0) - (a.viewers || 0))
+  }, [counts, filter, q])
+
+  const tabs = [
+    { key: 'all',    label: `All ${all.length}`,      color: '#c8c8e0' },
+    { key: 'twitch', label: '🟣',                     color: '#9147ff' },
+    { key: 'kick',   label: '🟢',                     color: '#53fc18' },
+    { key: 'live',   label: `🔴 ${liveCount}`,         color: '#ef4444' },
+  ]
 
   return (
-    <div style={{ padding: 14, overflowY: 'auto', height: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ textAlign: 'center', padding: '6px 0 12px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div style={{ fontSize: 38, fontWeight: 900, color: '#eeeef5', lineHeight: 1 }}>{total.toLocaleString()}</div>
-        <div style={{ fontSize: 10, color: '#8a8aa5', marginTop: 3, letterSpacing: '0.07em', textTransform: 'uppercase' }}>Total Viewers · {liveCount} live</div>
-      </div>
-      {entries.length === 0 ? (
-        <div style={{ fontSize: 11, color: '#55556a', textAlign: 'center', lineHeight: 1.7 }}>Connect channels to see live counts</div>
-      ) : entries.map(e => {
-        const pc = e.platform === 'twitch' ? '#9147ff' : '#53fc18'
-        return (
-          <div key={e.platform + e.name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
-            <div style={{ width: 7, height: 7, borderRadius: '50%', background: e.live ? '#22c55e' : '#444', boxShadow: e.live ? '0 0 6px #22c55e' : 'none', flexShrink: 0 }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: pc }}>{e.platform === 'twitch' ? '🟣' : '🟢'} {e.name}</div>
-              {e.title && <div style={{ fontSize: 10, color: '#55556a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</div>}
-              {!e.live && <div style={{ fontSize: 10, color: '#44445a' }}>offline</div>}
-            </div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: '#eeeef5' }}>{(e.viewers || 0).toLocaleString()}</div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Hero total */}
+      <div style={{ padding: '12px 14px 10px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0, background: 'linear-gradient(135deg,rgba(34,197,94,0.08),transparent)' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+          <div style={{ fontSize: 34, fontWeight: 900, color: '#eeeef5', lineHeight: 1 }}>{total.toLocaleString()}</div>
+          <div style={{ fontSize: 10, color: '#8a8aa5', letterSpacing: '0.07em', textTransform: 'uppercase' }}>total viewers</div>
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: liveCount ? '#22c55e' : '#55556a' }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: liveCount ? '#22c55e' : '#444', boxShadow: liveCount ? '0 0 6px #22c55e' : 'none' }} />{liveCount} live
           </div>
-        )
-      })}
+        </div>
+      </div>
+
+      {/* Filter bar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 10px', borderBottom: '1px solid rgba(255,255,255,0.05)', flexShrink: 0 }}>
+        {tabs.map(t => (
+          <button key={t.key} onClick={() => setFilter(t.key)} style={{
+            padding: '3px 9px', borderRadius: 20, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+            background: filter === t.key ? t.color + '22' : 'transparent',
+            color: filter === t.key ? t.color : '#8a8aa5',
+            border: `1px solid ${filter === t.key ? t.color + '55' : 'transparent'}`,
+          }}>{t.label}</button>
+        ))}
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="filter…"
+          style={{ marginLeft: 'auto', width: 90, background: '#0a0a0f', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, padding: '4px 8px', fontSize: 11, color: '#eeeef5', outline: 'none' }} />
+      </div>
+
+      {/* List */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+        {entries.length === 0 ? (
+          <div style={{ fontSize: 11, color: '#55556a', textAlign: 'center', padding: 20, lineHeight: 1.7 }}>{all.length ? 'No channels match.' : 'Connect channels to see live counts'}</div>
+        ) : entries.map(e => {
+          const pc = e.platform === 'twitch' ? '#9147ff' : '#53fc18'
+          const pct = Math.round(((e.viewers || 0) / peak) * 100)
+          return (
+            <div key={e.platform + e.name} style={{ position: 'relative', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', inset: 0, width: `${pct}%`, background: `linear-gradient(90deg,${pc}22,transparent)`, pointerEvents: 'none' }} />
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px' }}>
+                <span style={{ fontSize: 9, fontWeight: 800, color: pc, background: pc + '22', borderRadius: 5, padding: '2px 6px', textTransform: 'uppercase', flexShrink: 0 }}>{e.platform}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: '#eeeef5', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {e.name}
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: e.live ? '#22c55e' : '#444', boxShadow: e.live ? '0 0 5px #22c55e' : 'none' }} />
+                  </div>
+                  {e.title ? <div style={{ fontSize: 10, color: '#8a8aa5', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</div>
+                    : <div style={{ fontSize: 10, color: '#55556a' }}>{e.live ? 'live' : 'offline'}</div>}
+                </div>
+                <div style={{ fontSize: 19, fontWeight: 800, color: '#eeeef5', flexShrink: 0 }}>{(e.viewers || 0).toLocaleString()}</div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
