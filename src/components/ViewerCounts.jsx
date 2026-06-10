@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 
 // Live viewer counts for Twitch + Kick with filtering, search and sorting.
 export default function ViewerCounts({ sources }) {
-  const channels = (sources || []).filter(s => (s.platform === 'twitch' || s.platform === 'kick') && s.channel && s.channel.toLowerCase() !== 'connected')
+  const channels = (sources || []).filter(s => ((s.platform === 'twitch' || s.platform === 'kick') && s.channel && s.channel.toLowerCase() !== 'connected') || (s.platform === 'x' && s.kind === 'broadcast' && s.broadcastId))
   const [counts, setCounts] = useState({})
   const [filter, setFilter] = useState('all')   // all | twitch | kick | live
   const [q,      setQ]      = useState('')
@@ -21,6 +21,11 @@ export default function ViewerCounts({ sources }) {
           try {
             const r = await fetch(`https://kick.com/api/v1/channels/${encodeURIComponent(s.channel)}`, { headers: { Accept: 'application/json' } })
             if (r.ok) { const d = await r.json(); out[`kk_${s.channel}`] = { platform: 'kick', name: s.channel, viewers: d.livestream?.viewer_count ?? 0, live: !!d.livestream, title: d.livestream?.session_title || '' } }
+          } catch (_) {}
+        } else if (s.platform === 'x' && s.broadcastId) {
+          try {
+            const r = await fetch(`/api/x-broadcast?id=${encodeURIComponent(s.broadcastId)}`)
+            if (r.ok) { const d = await r.json(); out[`x_${s.broadcastId}`] = { platform: 'x', name: s.label || 'X Broadcast', viewers: d.viewers ?? 0, live: !!d.live, title: d.title || '', error: d.error || '' } }
           } catch (_) {}
         }
       }
@@ -49,6 +54,7 @@ export default function ViewerCounts({ sources }) {
     { key: 'all',    label: `All ${all.length}`,      color: '#c8c8e0' },
     { key: 'twitch', label: '🟣',                     color: '#9147ff' },
     { key: 'kick',   label: '🟢',                     color: '#53fc18' },
+    { key: 'x',      label: '✖',                      color: '#1d9bf0' },
     { key: 'live',   label: `🔴 ${liveCount}`,         color: '#ef4444' },
   ]
 
@@ -87,7 +93,7 @@ export default function ViewerCounts({ sources }) {
         {entries.length === 0 ? (
           <div style={{ fontSize: 11, color: '#55556a', textAlign: 'center', padding: 20, lineHeight: 1.7 }}>{all.length ? 'No channels match.' : 'Connect channels to see live counts'}</div>
         ) : entries.map(e => {
-          const pc = e.platform === 'twitch' ? '#9147ff' : '#53fc18'
+          const pc = e.platform === 'twitch' ? '#9147ff' : e.platform === 'kick' ? '#53fc18' : '#1d9bf0'
           const pct = Math.round(((e.viewers || 0) / peak) * 100)
           return (
             <div key={e.platform + e.name} style={{ position: 'relative', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
@@ -96,13 +102,13 @@ export default function ViewerCounts({ sources }) {
                 <span style={{ fontSize: 9, fontWeight: 800, color: pc, background: pc + '22', borderRadius: 5, padding: '2px 6px', textTransform: 'uppercase', flexShrink: 0 }}>{e.platform}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12.5, fontWeight: 700, color: '#eeeef5', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {e.name}
+                    {e.platform === 'x' ? '✖ ' : ''}{e.name}
                     <span style={{ width: 6, height: 6, borderRadius: '50%', background: e.live ? '#22c55e' : '#444', boxShadow: e.live ? '0 0 5px #22c55e' : 'none' }} />
                   </div>
                   {e.title ? <div style={{ fontSize: 10, color: '#8a8aa5', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</div>
                     : <div style={{ fontSize: 10, color: '#55556a' }}>{e.live ? 'live' : 'offline'}</div>}
                 </div>
-                <div style={{ fontSize: 19, fontWeight: 800, color: '#eeeef5', flexShrink: 0 }}>{(e.viewers || 0).toLocaleString()}</div>
+                <div style={{ fontSize: 19, fontWeight: 800, color: '#eeeef5', flexShrink: 0 }}>{e.platform === 'x' && (e.error || e.viewers == null) ? '—' : (e.viewers || 0).toLocaleString()}</div>
               </div>
             </div>
           )

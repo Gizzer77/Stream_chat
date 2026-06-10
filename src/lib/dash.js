@@ -41,7 +41,7 @@ export function parseSourceInput(raw) {
   const xlc = v.match(/(?:x|twitter)\.com\/([A-Za-z0-9_]{1,15})\/livechat/i)
   if (xlc) return { platform: 'x', kind: 'livechat', channel: xlc[1], url, label: '@' + xlc[1] + ' (X chat)' }
   const xb = v.match(/(?:x|twitter)\.com\/(?:i\/)?broadcasts\/([A-Za-z0-9]+)/i)
-  if (xb) return { platform: 'x', kind: 'broadcast', channel: 'X Broadcast', url, label: 'X Broadcast' }
+  if (xb) return { platform: 'x', kind: 'broadcast', channel: 'X Broadcast', broadcastId: xb[1], url, label: 'X Broadcast' }
   const km = v.match(/kick\.com\/([a-zA-Z0-9_]+)/i)
   if (km) return { platform: 'kick', channel: km[1], label: km[1] }
   const tm = v.match(/twitch\.tv\/([a-zA-Z0-9_]+)/i)
