@@ -15,6 +15,7 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
   const [sendMsg,    setSendMsg]    = useState('')
   const [sendStatus, setSendStatus] = useState(null)
   const [kickStatus, setKickStatus] = useState(null)
+  const [listenerUp, setListenerUp] = useState(false)
 
   const myTwitchCh = localStorage.getItem('twitch_username') || ''
   const { ready: twSendReady, send: twSend } = useTwitchSend(twitchAuth?.token, twitchAuth?.username)
@@ -55,12 +56,13 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
         if (r.ok) {
           const d = await r.json()
           delay = 1500
+          setListenerUp(true)
           if (Array.isArray(d.messages) && d.messages.length) {
             since = d.last || since
             setMsgs(prev => [...prev.slice(-399), ...d.messages.map(m => ({ id: 'xl_' + m.seq, platform: 'x', streamer: 'X', username: m.username || 'X', message: m.message, userColor: '#cbd5e1' }))])
           } else if (d.last) since = d.last
-        } else delay = 6000
-      } catch (_) { delay = 6000 }
+        } else { delay = 6000; setListenerUp(false) }
+      } catch (_) { delay = 6000; setListenerUp(false) }
       if (alive) timer = setTimeout(poll, delay)
     }
     poll()
@@ -136,6 +138,18 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
 
       {kickNotice && (
         <div style={{ flexShrink: 0, padding: '5px 10px', fontSize: 10.5, color: kickStatus?.state === 'blocked' ? '#f87171' : '#8a8aa5', background: 'rgba(83,252,24,0.06)', borderBottom: '1px solid rgba(83,252,24,0.14)' }}>🟢 {kickNotice}</div>
+      )}
+      {xLivechat && !isDesktop && (
+        listenerUp ? (
+          <div style={{ flexShrink: 0, padding: '5px 10px', fontSize: 10.5, color: '#22c55e', background: 'rgba(34,197,94,0.07)', borderBottom: '1px solid rgba(34,197,94,0.16)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 5px #22c55e' }} />✖ X Chat Listener connected — X messages are merging into All
+          </div>
+        ) : (
+          <div style={{ flexShrink: 0, padding: '6px 10px', fontSize: 10.5, color: '#fbbf24', background: 'rgba(251,191,36,0.08)', borderBottom: '1px solid rgba(251,191,36,0.18)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span>✖ To pull X chat into the combined feed, download &amp; run the <b>X Chat Listener</b> app.</span>
+            <a href="/x-listener.zip" download style={{ background: 'rgba(29,155,240,0.18)', border: '1px solid rgba(29,155,240,0.4)', color: '#1d9bf0', borderRadius: 6, padding: '2px 9px', fontSize: 10, fontWeight: 700, textDecoration: 'none' }}>⬇ Download listener</a>
+          </div>
+        )
       )}
 
       {/* Body: message list + the always-mounted X iframe (visible only on the X tab) */}
