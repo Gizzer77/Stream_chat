@@ -354,7 +354,8 @@ export default function Setup() {
 
   // ── X ──────────────────────────────────────────────────────────────────────
   async function exchangeXCode(code) {
-    const codeVerifier = sessionStorage.getItem('x_code_verifier') || ''
+    const codeVerifier = sessionStorage.getItem('x_code_verifier') || localStorage.getItem('x_code_verifier_tmp') || ''
+    localStorage.removeItem('x_code_verifier_tmp')
     const redirectUri  = `${window.location.origin}/oauth/x`
     try {
       const r = await fetch('/api/x-auth', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({code,codeVerifier,redirectUri}) })
@@ -374,9 +375,11 @@ export default function Setup() {
     const verifier  = genCodeVerifier()
     const challenge = await genCodeChallenge(verifier)
     sessionStorage.setItem('x_code_verifier', verifier)
+    localStorage.setItem('x_code_verifier_tmp', verifier) // fallback for SSO redirect flow
     const redirectUri = `${window.location.origin}/oauth/x`
     const url = 'https://twitter.com/i/oauth2/authorize?'+new URLSearchParams({ response_type:'code', client_id:cid, redirect_uri:redirectUri, scope:'tweet.write users.read offline.access', state:Math.random().toString(36).slice(2), code_challenge:challenge, code_challenge_method:'S256' })
-    const popup = window.open(url,'x_oauth','width=500,height=700,left=200,top=100')
+    // Larger window to accommodate Google SSO inside X auth
+    const popup = window.open(url,'x_oauth','width=700,height=850,left=100,top=50')
     setConnectingX(true)
     const handler = async e => {
       if (e.origin!==window.location.origin||e.data?.type!=='x_oauth') return

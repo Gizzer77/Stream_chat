@@ -8,13 +8,13 @@ export default function OAuthCallback() {
     if (pathname === '/oauth/twitch') {
       const params = new URLSearchParams(window.location.hash.slice(1))
       const token  = params.get('access_token')
-      const error  = params.get('error_description')
+      const error  = params.get('error_description') || params.get('error')
       if (window.opener && !window.opener.closed) {
         window.opener.postMessage({ type: 'twitch_oauth', token, error }, window.location.origin)
         window.close()
       } else {
         if (token) localStorage.setItem('twitch_pending_token', token)
-        window.location.replace('/dashboard')
+        window.location.replace('/')
       }
 
     } else if (pathname === '/oauth/x') {
@@ -26,7 +26,7 @@ export default function OAuthCallback() {
         window.close()
       } else {
         if (code) localStorage.setItem('x_pending_code', code)
-        window.location.replace('/dashboard')
+        window.location.replace('/')
       }
 
     } else if (pathname === '/oauth/kick') {
