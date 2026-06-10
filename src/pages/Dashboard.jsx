@@ -125,7 +125,7 @@ export default function Dashboard() {
 
   function renderPanel(id) {
     switch (id) {
-      case 'stream':     return <StreamPlayer streamers={streamers} />
+      case 'stream':     return <StreamPlayer sources={sources} />
       case 'chat':       return <CombinedChat sources={sources} twitchAuth={twitchAuth} xAuth={xAuth} kickAuth={kickAuth} onOpenSettings={() => setSettingsTab('sources')} />
       case 'viewers':    return <ViewerCounts sources={sources} />
       case 'polymarket': return <Polymarket defaultQuery={cfg.polyQ} limit={cfg.polyLimit} />

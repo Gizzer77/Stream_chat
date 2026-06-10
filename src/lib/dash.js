@@ -32,15 +32,27 @@ export const PLAT = {
   x:      { color: '#e2e8f0', bg: 'rgba(255,255,255,0.06)' },
 }
 
-// Parse a "twitch.tv/foo", "kick.com/foo" or bare handle into a source.
+// Parse a URL or handle into a chat/video source. Supports Twitch, Kick and X
+// (X broadcasts are watchable in the player; X chat read needs paid API access).
 export function parseSourceInput(raw) {
   const v = (raw || '').trim()
   if (!v) return null
+  const url = v.startsWith('http') ? v : `https://${v}`
+  const xlc = v.match(/(?:x|twitter)\.com\/([A-Za-z0-9_]{1,15})\/livechat/i)
+  if (xlc) return { platform: 'x', kind: 'livechat', channel: xlc[1], url, label: '@' + xlc[1] + ' (X chat)' }
+  const xb = v.match(/(?:x|twitter)\.com\/(?:i\/)?broadcasts\/([A-Za-z0-9]+)/i)
+  if (xb) return { platform: 'x', kind: 'broadcast', channel: 'X Broadcast', url, label: 'X Broadcast' }
   const km = v.match(/kick\.com\/([a-zA-Z0-9_]+)/i)
   if (km) return { platform: 'kick', channel: km[1], label: km[1] }
   const tm = v.match(/twitch\.tv\/([a-zA-Z0-9_]+)/i)
   if (tm) return { platform: 'twitch', channel: tm[1], label: tm[1] }
-  if (/^[a-zA-Z0-9_]{2,30}$/.test(v)) return { platform: 'twitch', channel: v, label: v }
+  const xp = v.match(/(?:x|twitter)\.com\/([A-Za-z0-9_]{1,15})(?:\/|$)/i)
+  if (xp && xp[1].toLowerCase() !== 'i') {
+    const u = xp[1]
+    return { platform: 'x', kind: 'livechat', channel: u, url: `https://x.com/${u}/livechat`, label: '@' + u + ' (X chat)' }
+  }
+  // bare "@handle" is ambiguous; default to Twitch (most common here)
+  if (/^@?[a-zA-Z0-9_]{2,30}$/.test(v)) { const c = v.replace(/^@/, ''); return { platform: 'twitch', channel: c, label: c } }
   return null
 }
 

@@ -52,20 +52,20 @@ export default function SettingsModal({ cfg, onSave, onClose, initialTab = 'sour
                 <span style={{ fontSize: 13, color: '#eeeef5', fontWeight: 600 }}>Use my connected accounts + co-streamers</span>
               </label>
               <label style={labelStyle}>Custom chat sources</label>
-              <div style={{ fontSize: 11, color: '#8a8aa5', marginBottom: 10 }}>Add any Twitch or Kick channel by URL or name to pull its chat. Your connected X also feeds mentions in automatically.</div>
+              <div style={{ fontSize: 11, color: '#8a8aa5', marginBottom: 10 }}>Add Twitch / Kick channels (URL or name) for chat + video. Paste a streamer's X link (x.com/USERNAME) and we'll embed their live chat. Add x.com/i/broadcasts/… to watch a broadcast.</div>
               {(draft.customSources || []).map((s, i) => {
                 const pc = PLAT[s.platform]?.color || '#888'
                 return (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '6px 10px' }}>
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: pc }} />
-                    <span style={{ fontSize: 12, color: pc, fontWeight: 700, flex: 1 }}>{s.platform === 'twitch' ? '🟣' : '🟢'} {s.channel}</span>
+                    <span style={{ fontSize: 12, color: pc, fontWeight: 700, flex: 1 }}>{s.platform === 'twitch' ? '🟣' : s.platform === 'kick' ? '🟢' : '✖'} {s.label || s.channel}</span>
                     <button onClick={() => removeSource(i)} style={{ background: 'rgba(239,68,68,0.14)', border: 'none', color: '#f87171', borderRadius: 6, padding: '2px 9px', fontSize: 11, cursor: 'pointer' }}>✕</button>
                   </div>
                 )
               })}
               <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
                 <input value={srcInput} onChange={e => setSrcInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && addSource()}
-                  placeholder="twitch.tv/channel  or  kick.com/channel" style={inputStyle} />
+                  placeholder="twitch.tv/… · kick.com/… · x.com/i/broadcasts/…" style={inputStyle} />
                 <button onClick={addSource} style={{ background: 'linear-gradient(135deg,#9147ff,#6441a5)', color: '#fff', border: 'none', borderRadius: 9, padding: '0 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>+ Add</button>
               </div>
             </>

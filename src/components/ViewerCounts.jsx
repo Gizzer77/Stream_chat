@@ -13,10 +13,27 @@ export default function ViewerCounts({ sources }) {
       const out = {}
       for (const s of channels) {
         if (s.platform === 'twitch') {
-          try {
-            const r = await fetch(`/api/viewer-counts?platform=twitch&channel=${encodeURIComponent(s.channel)}`)
-            if (r.ok) out[`tw_${s.channel}`] = { platform: 'twitch', name: s.channel, ...(await r.json()) }
-          } catch (_) {}
+          const token = localStorage.getItem('twitch_token') || ''
+          const clientId = import.meta.env.VITE_TWITCH_CLIENT_ID || localStorage.getItem('twitch_client_id') || ''
+          let done = false
+          if (token && clientId) {
+            // Twitch Helix supports CORS — query directly with the logged-in
+            // user's token so no server-side secret is needed.
+            try {
+              const r = await fetch(`https://api.twitch.tv/helix/streams?user_login=${encodeURIComponent(s.channel)}`, { headers: { Authorization: `Bearer ${token}`, 'Client-Id': clientId } })
+              if (r.ok) {
+                const d = await r.json(); const st = d.data?.[0]
+                out[`tw_${s.channel}`] = { platform: 'twitch', name: s.channel, viewers: st?.viewer_count || 0, live: !!st, title: st?.title || '' }
+                done = true
+              }
+            } catch (_) {}
+          }
+          if (!done) {
+            try {
+              const r = await fetch(`/api/viewer-counts?platform=twitch&channel=${encodeURIComponent(s.channel)}`)
+              if (r.ok) out[`tw_${s.channel}`] = { platform: 'twitch', name: s.channel, ...(await r.json()) }
+            } catch (_) {}
+          }
         } else if (s.platform === 'kick') {
           try {
             const r = await fetch(`https://kick.com/api/v1/channels/${encodeURIComponent(s.channel)}`, { headers: { Accept: 'application/json' } })
