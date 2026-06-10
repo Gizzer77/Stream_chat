@@ -89,9 +89,12 @@ export function effectiveSources(cfg, streamers) {
   const out = []
   const seen = new Set()
   const push = s => { const k = s.platform + ':' + s.channel.toLowerCase(); if (s.channel && !seen.has(k)) { seen.add(k); out.push(s) } }
+  const myX = localStorage.getItem('x_username') || ''
   if (cfg.useOwnChat) {
     if (myTwitch) push({ platform: 'twitch', channel: myTwitch, label: 'Your Twitch' })
     if (myKick)   push({ platform: 'kick',   channel: myKick,   label: 'Your Kick' })
+    // Logged into X → auto-embed your own broadcast live chat (x.com/<you>/livechat)
+    if (myX && myX !== 'connected') push({ platform: 'x', kind: 'livechat', channel: myX, url: `https://x.com/${myX}/livechat`, label: '@' + myX + ' (your X chat)' })
     ;(streamers || []).forEach(s => {
       if (s.twitch) push({ platform: 'twitch', channel: s.twitch, label: (s.name || s.twitch) + ' (Twitch)' })
       if (s.kick)   push({ platform: 'kick',   channel: s.kick,   label: (s.name || s.kick) + ' (Kick)' })
