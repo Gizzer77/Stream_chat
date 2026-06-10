@@ -25,10 +25,14 @@ export default function OAuthCallback() {
     dbg('CALLBACK hit', { pathname, origin: window.location.origin, hasHash: !!window.location.hash, hasSearch: !!search })
 
     if (pathname === '/oauth/twitch') {
-      const params = new URLSearchParams(window.location.hash.slice(1))
-      const token  = params.get('access_token')
-      const error  = params.get('error_description') || params.get('error')
-      dbg('TWITCH parsed', { hasToken: !!token, tokenLen: token ? token.length : 0, error })
+      // Twitch implicit grant returns the token in the URL #hash, but errors
+      // (redirect mismatch, etc.) come back in the ?query — read BOTH.
+      const hashParams   = new URLSearchParams(window.location.hash.slice(1))
+      const searchParams = new URLSearchParams(search)
+      const token  = hashParams.get('access_token') || searchParams.get('access_token')
+      const error  = hashParams.get('error_description') || hashParams.get('error')
+                  || searchParams.get('error_description') || searchParams.get('error')
+      dbg('TWITCH parsed', { hasToken: !!token, tokenLen: token ? token.length : 0, error, rawSearch: search || '(none)', rawHash: window.location.hash ? '(hash present, hidden)' : '(none)' })
       if (token) localStorage.setItem('twitch_pending_token', token)
       if (error) localStorage.setItem('twitch_pending_error', error)
       const dest = returnTo('twitch_oauth_return')

@@ -421,7 +421,7 @@ export default function Setup() {
       const raw = await r.text()
       let d = {}
       try { d = JSON.parse(raw) } catch (_) { d = { error: 'Non-JSON response from /api/x-auth (are you on the deployed site / vercel dev? plain `vite` does not run /api): ' + raw.slice(0,120) } }
-      dbg('X exchange response', { status: r.status, ok: r.ok, hasToken: !!d.access_token, username: d.username||'', error: d.error||'' })
+      dbg('X exchange response', { status: r.status, ok: r.ok, hasToken: !!d.access_token, username: d.username||'', error: d.error||'', userDebug: d.user_debug||'' })
       if (d.access_token) {
         localStorage.setItem('x_token',    d.access_token)
         localStorage.setItem('x_username', d.username||'connected')
@@ -441,7 +441,7 @@ export default function Setup() {
     localStorage.setItem('x_code_verifier_tmp', verifier)
     localStorage.setItem('x_oauth_return', window.location.href.split('#')[0])
     const redirectUri = `${window.location.origin}/oauth/x`
-    const url = 'https://x.com/i/oauth2/authorize?'+new URLSearchParams({ response_type:'code', client_id:cid, redirect_uri:redirectUri, scope:'tweet.write users.read offline.access', state:Math.random().toString(36).slice(2), code_challenge:challenge, code_challenge_method:'S256' })
+    const url = 'https://x.com/i/oauth2/authorize?'+new URLSearchParams({ response_type:'code', client_id:cid, redirect_uri:redirectUri, scope:'tweet.read tweet.write users.read offline.access', state:Math.random().toString(36).slice(2), code_challenge:challenge, code_challenge_method:'S256' })
     setConnectingX(true)
     dbg('X connect -> redirecting to X', { cid: (cid||'').slice(0,6)+'...', redirectUri, returnTo: window.location.href.split('#')[0] })
     // Full redirect — avoids popup-blocker/COOP/opener issues that caused the X login loop

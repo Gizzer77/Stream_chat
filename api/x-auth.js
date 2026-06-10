@@ -47,20 +47,28 @@ export default async function handler(req, res) {
       res.status(400).json({ error: tokenData.error_description || tokenData.error || 'Token exchange failed' }); return
     }
 
-    // Fetch username
+    // Fetch username (captures WHY it's empty so the client debug panel can show it)
     let username = ''
+    let user_debug = ''
     try {
-      const userRes = await fetch('https://api.twitter.com/2/users/me', {
+      const userRes  = await fetch('https://api.twitter.com/2/users/me', {
         headers: { 'Authorization': `Bearer ${tokenData.access_token}` },
       })
-      const userData = await userRes.json()
-      username = userData.data?.username || ''
-    } catch (_) {}
+      const userText = await userRes.text()
+      try {
+        const userData = JSON.parse(userText)
+        username = userData.data?.username || ''
+        if (!username) user_debug = `users/me ${userRes.status}: ${userText.slice(0, 160)}`
+      } catch (_) {
+        user_debug = `users/me ${userRes.status} non-JSON: ${userText.slice(0, 160)}`
+      }
+    } catch (e) { user_debug = `users/me threw: ${e.message}` }
 
     res.status(200).json({
       access_token:  tokenData.access_token,
       refresh_token: tokenData.refresh_token || '',
       username,
+      user_debug,
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
