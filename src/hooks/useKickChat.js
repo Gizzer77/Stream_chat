@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { dbg } from '../lib/dash'
 
 // Kick's web client Pusher config.
-const PUSHER_KEY     = '32cbd69e4b950bf97679'
+const PUSHER_KEY     = 'eb1d5f283081a78b932c'
 const PUSHER_CLUSTER = 'us2'
 
 async function fetchChatroomId(channelName) {
