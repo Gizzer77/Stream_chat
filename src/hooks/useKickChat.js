@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { dbg } from '../lib/dash'
 
 // Kick's web client Pusher config.
-const PUSHER_KEY     = 'eb1d5f283081a78b932c'
+const PUSHER_KEY     = '32cbd69e4b950bf97679'
 const PUSHER_CLUSTER = 'us2'
 
 async function fetchChatroomId(channelName) {
@@ -40,7 +40,11 @@ function connectPusher(chatroomId, streamerName, onMessage, onClose) {
       ws.send(JSON.stringify({ event: 'pusher:subscribe', data: { auth: '', channel: `chatrooms.${chatroomId}.v2` } }))
       return
     }
-    if (msg.event === 'pusher:error') { dbg('KICK pusher error', { data: msg.data }); return }
+    if (msg.event === 'pusher:error') {
+      let info = msg.data; try { info = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data } catch (_) {}
+      dbg('KICK pusher error', { code: info?.code, message: info?.message })
+      return
+    }
     if (msg.event === 'App\\Events\\ChatMessageEvent') {
       try {
         const payload = JSON.parse(msg.data)

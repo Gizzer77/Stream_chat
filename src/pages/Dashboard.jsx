@@ -117,6 +117,32 @@ export default function Dashboard() {
   function persistCfg(next) { setCfg(next); saveCfg(next) }
   function setPanel(id, visible) { persistCfg({ ...cfg, panels: { ...cfg.panels, [id]: visible } }) }
 
+  // ── Room sharing ────────────────────────────────────────────────────────────
+  const [, setRoomTick] = useState(0)
+  const origin = window.location.origin
+  const roomCode = config?.roomCode || ''
+  const roomLocked = !!config?.locked
+  const roomLink = window.location.href
+  const inviteLink = (() => {
+    try {
+      return `${origin}/?invite=` + btoa(JSON.stringify({
+        name: localStorage.getItem('twitch_username') || localStorage.getItem('kick_username') || 'Host',
+        twitchUsername: localStorage.getItem('twitch_username') || '',
+        kickUsername: localStorage.getItem('kick_username') || '',
+        xUsername: localStorage.getItem('x_username') || '',
+        roomCode, locked: roomLocked,
+      }))
+    } catch (_) { return origin }
+  })()
+  function toggleLock() {
+    try {
+      const cur = config || { roomCode, streamers: [] }
+      window.location.hash = btoa(JSON.stringify({ ...cur, locked: !cur.locked }))
+      setRoomTick(t => t + 1)
+    } catch (_) {}
+  }
+  const room = { code: roomCode, link: roomLink, invite: inviteLink, locked: roomLocked, onToggleLock: toggleLock }
+
   const sources = effectiveSources(cfg, streamers)
   const visiblePanels = PANEL_ORDER.filter(id => cfg.panels[id] !== false)
   const hiddenPanels  = PANEL_ORDER.filter(id => cfg.panels[id] === false)
@@ -141,7 +167,7 @@ export default function Dashboard() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: '#07070e', color: '#eeeef5', fontFamily: "'Inter','Segoe UI',system-ui,sans-serif" }}>
-      {settingsTab && <SettingsModal cfg={cfg} initialTab={settingsTab} onSave={persistCfg} onClose={() => setSettingsTab(null)} />}
+      {settingsTab && <SettingsModal cfg={cfg} room={room} initialTab={settingsTab} onSave={persistCfg} onClose={() => setSettingsTab(null)} />}
 
       <MarketTicker />
 
@@ -167,6 +193,7 @@ export default function Dashboard() {
         {!twitchAuth && <button onClick={connectTwitch} style={{ ...lightBtn, color: '#c084fc', background: 'rgba(145,71,255,0.14)', border: '1px solid rgba(145,71,255,0.35)' }}>🟣 Connect Twitch</button>}
         {!xAuth && <button onClick={connectX} disabled={connectingX} style={{ ...lightBtn, color: '#cbd5e1', background: 'rgba(226,232,240,0.08)', border: '1px solid rgba(226,232,240,0.25)' }}>{connectingX ? 'Connecting…' : '✖ Connect X'}</button>}
 
+        <button onClick={() => setSettingsTab('room')} style={lightBtn}>🔗 Room {roomCode ? `· ${roomCode}` : ''}</button>
         <button onClick={() => setSettingsTab('sources')} style={lightBtn}>⚙ Settings</button>
         <button onClick={() => persistCfg({ ...cfg, panels: { stream: true, chat: true, viewers: true, polymarket: true, c3po: true } })} style={lightBtn}>Reset panels</button>
       </div>
@@ -176,22 +203,28 @@ export default function Dashboard() {
           small C-3PO box. Flex sizing keeps panels from overlapping or
           leaving the screen. */}
       <div style={{ flex: 1, display: 'flex', gap: 14, padding: 14, overflow: 'hidden', minHeight: 0 }}>
-        {show('chat') && (
-          <div style={{ width: 'clamp(300px, 30%, 430px)', flexShrink: 0, height: '100%' }}>{P('chat')}</div>
-        )}
+        {/* LEFT / MAIN: stream (smaller) + small viewers top-right, then big C-3PO + Polymarket */}
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto' }}>
-          {show('stream') && <div style={{ height: 'clamp(320px, 50vh, 560px)', flexShrink: 0 }}>{P('stream')}</div>}
-          {(show('viewers') || show('polymarket')) && (
-            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', flexShrink: 0 }}>
-              {show('viewers')    && <div style={{ flex: '1 1 300px', height: 360 }}>{P('viewers')}</div>}
-              {show('polymarket') && <div style={{ flex: '1 1 320px', height: 360 }}>{P('polymarket')}</div>}
+          {(show('stream') || show('viewers')) && (
+            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap', flexShrink: 0 }}>
+              {show('stream')  && <div style={{ flex: '3 1 320px', height: 'clamp(280px, 40vh, 440px)' }}>{P('stream')}</div>}
+              {show('viewers') && <div style={{ flex: '1 1 200px', maxWidth: 280, height: 230 }}>{P('viewers')}</div>}
             </div>
           )}
-          {show('c3po') && <div style={{ height: 250, flexShrink: 0 }}>{P('c3po')}</div>}
+          {(show('c3po') || show('polymarket')) && (
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', flexShrink: 0 }}>
+              {show('c3po')       && <div style={{ flex: '2 1 340px', height: 400 }}>{P('c3po')}</div>}
+              {show('polymarket') && <div style={{ flex: '1 1 300px', height: 400 }}>{P('polymarket')}</div>}
+            </div>
+          )}
           {visiblePanels.length === 0 && (
             <div style={{ textAlign: 'center', color: '#55556a', fontSize: 13, padding: 40 }}>All panels hidden — add them back from the top bar.</div>
           )}
         </div>
+        {/* RIGHT: combined chat, bigger */}
+        {show('chat') && (
+          <div style={{ width: 'clamp(340px, 36%, 480px)', flexShrink: 0, height: '100%' }}>{P('chat')}</div>
+        )}
       </div>
 
       <style>{`
