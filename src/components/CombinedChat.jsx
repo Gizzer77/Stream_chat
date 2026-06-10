@@ -14,7 +14,6 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
 
   const [sendMsg,    setSendMsg]    = useState('')
   const [sendStatus, setSendStatus] = useState(null)
-  const [xNotice,    setXNotice]    = useState('')
   const [kickStatus, setKickStatus] = useState(null)
   const [showXChat,  setShowXChat]  = useState(true)
   const [xChatFull,  setXChatFull]  = useState(false)
@@ -33,31 +32,9 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
   useTwitchChat(hookStreamers, add)
   useKickChat(hookStreamers, add, setKickStatus)
 
-  // X mentions read (free X tier can't; back off and show why)
-  useEffect(() => {
-    if (!xAuth?.token) return
-    let alive = true, failures = 0, timer
-    async function poll() {
-      if (!alive) return
-      try {
-        const r = await fetch('/api/x-mentions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accessToken: xAuth.token }) })
-        const d = await r.json()
-        if (!alive) return
-        if (Array.isArray(d.messages)) {
-          setXNotice('')
-          setMsgs(prev => {
-            const have = new Set(prev.filter(m => m.platform === 'x').map(m => m.id))
-            const fresh = d.messages.filter(m => !have.has('x_' + m.id)).reverse()
-              .map(m => ({ id: 'x_' + m.id, platform: 'x', username: m.username, message: m.text, userColor: '#cbd5e1' }))
-            return fresh.length ? [...prev.slice(-399), ...fresh] : prev
-          })
-        } else { failures++; setXNotice(d.error || 'X read unavailable'); dbg('X mentions error', { error: d.error }) }
-      } catch (e) { failures++ }
-      if (alive && failures < 2) timer = setTimeout(poll, 60000)
-    }
-    poll()
-    return () => { alive = false; clearTimeout(timer) }
-  }, [xAuth?.token])
+  // X chat now arrives via the embed + browser extension (see mb_x_chat
+  // listener above); the X mentions API isn't available on the free tier.
+
 
   // ── X chat from the browser extension (window.postMessage bridge) ───────────
   // The "Market Bubble X Chat" extension scrapes x.com/<user>/livechat and posts
@@ -95,7 +72,10 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
     setTimeout(() => setSendStatus(null), 5000)
   }
 
-  const xLivechat = (sources || []).find(s => s.platform === 'x' && s.kind === 'livechat')
+  const myX = (localStorage.getItem('x_username') || '').toLowerCase()
+  const xLivechats = (sources || []).filter(s => s.platform === 'x' && s.kind === 'livechat')
+  // Prefer a livechat you ADDED as a source over your own auto-added one
+  const xLivechat = xLivechats.find(s => s.channel.toLowerCase() !== myX) || xLivechats[0]
   const kickNotice = kickStatus?.state === 'blocked'
     ? `Kick chat blocked for ${kickStatus.channel}: ${kickStatus.error}`
     : kickStatus?.state === 'connecting' ? `Connecting to Kick (${kickStatus.channel})…` : ''
@@ -134,9 +114,6 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
       {kickNotice && (
         <div style={{ flexShrink: 0, padding: '5px 10px', fontSize: 10.5, color: kickStatus?.state === 'blocked' ? '#f87171' : '#8a8aa5', background: 'rgba(83,252,24,0.06)', borderBottom: '1px solid rgba(83,252,24,0.14)' }}>🟢 {kickNotice}</div>
       )}
-      {xNotice && (
-        <div style={{ flexShrink: 0, padding: '5px 10px', fontSize: 10.5, color: '#fbbf24', background: 'rgba(251,191,36,0.08)', borderBottom: '1px solid rgba(251,191,36,0.18)' }}>✖ X read: {xNotice}</div>
-      )}
 
       {/* X live chat embed (uses your logged-in X session) */}
       {xLivechat && (
@@ -149,7 +126,7 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
           </div>
           {showXChat && (
             <div style={{ flex: fullMode ? 1 : 'none', padding: fullMode ? 0 : '0 8px 8px', minHeight: 0, display: 'flex' }}>
-              <iframe src={xLivechat.url} title="X live chat" style={{ width: '100%', height: fullMode ? '100%' : 240, flex: fullMode ? 1 : 'none', border: '1px solid rgba(29,155,240,0.25)', borderRadius: fullMode ? 0 : 10, background: '#000' }} />
+              <iframe src={xLivechat.url} title="X live chat" style={{ width: '100%', height: fullMode ? '100%' : 300, flex: fullMode ? 1 : 'none', border: '1px solid rgba(29,155,240,0.25)', borderRadius: fullMode ? 0 : 10, background: '#000' }} />
             </div>
           )}
         </div>
