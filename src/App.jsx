@@ -1,9 +1,17 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Setup         from './pages/Setup.jsx'
-import Room          from './pages/Room.jsx'
 import C3PO          from './pages/C3PO.jsx'
 import Dashboard     from './pages/Dashboard.jsx'
 import OAuthCallback from './pages/OAuthCallback.jsx'
+
+// Single-view app: /room now just forwards to the Dashboard, keeping the
+// room config that travels in the URL hash.
+function RoomRedirect() {
+  if (typeof window !== 'undefined') {
+    window.location.replace('/dashboard' + window.location.hash)
+  }
+  return null
+}
 
 function TopBanner() {
   return (
@@ -48,7 +56,7 @@ function AppShell() {
       <div style={{ flex:1, overflow:'hidden' }}>
         <Routes>
           <Route path="/"             element={<Setup />} />
-          <Route path="/room"         element={<Room />} />
+          <Route path="/room"         element={<RoomRedirect />} />
           <Route path="/c3po"         element={<C3PO />} />
           <Route path="/dashboard"    element={<Dashboard />} />
           <Route path="/oauth/twitch" element={<OAuthCallback />} />

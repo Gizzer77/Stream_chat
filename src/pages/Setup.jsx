@@ -465,11 +465,11 @@ export default function Setup() {
     await navigator.clipboard.writeText(buildInviteUrl(myProfile,roomCode,locked)).catch(()=>{})
     setInviteCopied(true); setTimeout(()=>setInviteCopied(false),2500)
   }
-  function handleOpen(toDash) {
+  function handleOpen() {
     const err=validate(); if(err){setError(err);return}
     setError('')
     const url=buildRoomUrl([myProfile],roomCode,locked)
-    navigate((toDash?'/dashboard':'/room')+'#'+url.split('#')[1])
+    navigate('/dashboard#'+url.split('#')[1])
   }
   async function handleGuestJoin() {
     const err=validate(); if(err){setError(err);return}
@@ -479,9 +479,9 @@ export default function Setup() {
     await navigator.clipboard.writeText(url).catch(()=>{})
     setRoomCopied(true); setTimeout(()=>setRoomCopied(false),3000)
   }
-  function handleGuestNavigate(toDash) {
+  function handleGuestNavigate() {
     if(!finalUrl)return
-    navigate((toDash?'/dashboard':'/room')+'#'+finalUrl.split('#')[1])
+    navigate('/dashboard#'+finalUrl.split('#')[1])
   }
   function handleJoin() {
     setJoinErr('')
@@ -539,8 +539,7 @@ export default function Setup() {
                 <div style={{ fontSize:12, fontWeight:700, color:'#22c55e', marginBottom:10 }}>✅ Room link ready — send this to {hostProfile.name||'your co-streamer'}!</div>
                 <div style={{ background:'#08080f', border:'1px solid rgba(255,255,255,0.08)', borderRadius:8, padding:'10px 14px', fontSize:12, color:'#8888aa', wordBreak:'break-all', fontFamily:'monospace', marginBottom:12 }}>{finalUrl}</div>
                 <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
-                  <ActionBtn primary icon="💬" label="Open Chat Room" onClick={()=>handleGuestNavigate(false)} />
-                  <ActionBtn icon="🎛" label="Open Dashboard" onClick={()=>handleGuestNavigate(true)} />
+                  <ActionBtn primary icon="🎛" label="Open Dashboard" onClick={()=>handleGuestNavigate()} />
                   <ActionBtn icon={roomCopied?'✓':'📋'} label={roomCopied?'Copied!':'Copy Room Link'} onClick={async()=>{ await navigator.clipboard.writeText(finalUrl).catch(()=>{}); setRoomCopied(true); setTimeout(()=>setRoomCopied(false),2500) }} style={roomCopied?{borderColor:'rgba(34,197,94,0.3)'}:{}} />
                 </div>
               </div>
@@ -587,8 +586,7 @@ export default function Setup() {
             {error && <ErrorBar msg={error} />}
 
             <div style={{ display:'flex', gap:10, flexWrap:'wrap', marginBottom:10 }}>
-              <ActionBtn primary icon="💬" label="Open Chat Room" sublabel="Twitch + Kick combined" onClick={()=>handleOpen(false)} />
-              <ActionBtn icon="🎛" label="Open Dashboard" sublabel="Stream player + analytics" onClick={()=>handleOpen(true)} />
+              <ActionBtn primary icon="🎛" label="Open Dashboard" sublabel="Stream · chat · markets · AI" onClick={()=>handleOpen()} />
               <ActionBtn icon={inviteCopied?'✅':'🔗'} label={inviteCopied?'Copied!':'Copy Invite Link'} sublabel="Send to co-streamer" onClick={handleCopyInvite} style={inviteCopied?{borderColor:'rgba(34,197,94,0.3)'}:{}} />
             </div>
           </>
