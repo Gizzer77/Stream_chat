@@ -291,21 +291,10 @@ export default function Setup() {
     const cid = ENV.twitchClientId || localStorage.getItem('twitch_client_id') || ''
     if (!cid) { alert('Add VITE_TWITCH_CLIENT_ID to your .env.local file'); return }
     const redirectUri = `${window.location.origin}/oauth/twitch`
+    localStorage.setItem('twitch_oauth_return', window.location.href.split('#')[0])
     const url = `https://id.twitch.tv/oauth2/authorize?client_id=${cid}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=chat%3Aread+chat%3Aedit`
-    const popup = window.open(url,'twitch_oauth','width=500,height=700,left=200,top=100')
-    setConnectingTw(true)
-    const handler = async e => {
-      if (e.origin!==window.location.origin||e.data?.type!=='twitch_oauth') return
-      window.removeEventListener('message',handler); setConnectingTw(false)
-      if (e.data.token) {
-        const username = await fetchTwitchUser(e.data.token, cid)
-        localStorage.setItem('twitch_token', e.data.token)
-        localStorage.setItem('twitch_username', username)
-        setMyProfile(p=>({...p,twitchUsername:username}))
-      } else alert('Twitch auth failed: '+(e.data.error||'unknown'))
-    }
-    window.addEventListener('message',handler)
-    setTimeout(()=>{ window.removeEventListener('message',handler); setConnectingTw(false); if(popup&&!popup.closed)popup.close() },120000)
+    // Full redirect — avoids postMessage/popup-blocker/COOP issues
+    window.location.href = url
   }
   function disconnectTwitch() {
     ['twitch_token','twitch_username'].forEach(k=>localStorage.removeItem(k))

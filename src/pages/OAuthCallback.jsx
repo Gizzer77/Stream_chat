@@ -5,29 +5,29 @@ export default function OAuthCallback() {
   const { pathname, search } = useLocation()
 
   useEffect(() => {
+    // Redirect back to where the auth was initiated, falling back to '/'
+    function returnTo(key) {
+      const saved = localStorage.getItem(key)
+      localStorage.removeItem(key)
+      return saved || '/'
+    }
+
     if (pathname === '/oauth/twitch') {
       const params = new URLSearchParams(window.location.hash.slice(1))
       const token  = params.get('access_token')
       const error  = params.get('error_description') || params.get('error')
-      if (window.opener && !window.opener.closed) {
-        window.opener.postMessage({ type: 'twitch_oauth', token, error }, window.location.origin)
-        window.close()
-      } else {
-        if (token) localStorage.setItem('twitch_pending_token', token)
-        window.location.replace('/')
-      }
+      // Always use redirect flow — popup/postMessage approach has COOP/blocker issues
+      if (token) localStorage.setItem('twitch_pending_token', token)
+      if (error) localStorage.setItem('twitch_pending_error', error)
+      window.location.replace(returnTo('twitch_oauth_return'))
 
     } else if (pathname === '/oauth/x') {
       const params = new URLSearchParams(search)
       const code   = params.get('code')
       const error  = params.get('error')
-      if (window.opener && !window.opener.closed) {
-        window.opener.postMessage({ type: 'x_oauth', code, error }, window.location.origin)
-        window.close()
-      } else {
-        if (code) localStorage.setItem('x_pending_code', code)
-        window.location.replace('/')
-      }
+      if (code) localStorage.setItem('x_pending_code', code)
+      if (error) localStorage.setItem('x_pending_error', error)
+      window.location.replace(returnTo('x_oauth_return'))
 
     } else if (pathname === '/oauth/kick') {
       const params = new URLSearchParams(search)
@@ -38,7 +38,7 @@ export default function OAuthCallback() {
         window.close()
       } else {
         if (code) localStorage.setItem('kick_pending_code', code)
-        window.location.replace('/')
+        window.location.replace(returnTo('kick_oauth_return'))
       }
     }
   }, [pathname, search])
