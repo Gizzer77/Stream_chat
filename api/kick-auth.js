@@ -20,7 +20,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Exchange code → tokens
     const tokenRes = await fetch('https://id.kick.com/oauth/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -33,9 +32,16 @@ export default async function handler(req, res) {
         code_verifier: codeVerifier,
       }).toString(),
     })
-    const tokenData = await tokenRes.json()
+
+    const rawText = await tokenRes.text()
+    let tokenData
+    try { tokenData = JSON.parse(rawText) }
+    catch (_) {
+      res.status(500).json({ error: `Kick returned non-JSON: ${rawText.slice(0, 200)}` }); return
+    }
+
     if (!tokenRes.ok) {
-      res.status(400).json({ error: tokenData.message || tokenData.error || 'Token exchange failed' }); return
+      res.status(400).json({ error: tokenData.message || tokenData.error || `HTTP ${tokenRes.status}` }); return
     }
 
     // Fetch username
@@ -45,7 +51,6 @@ export default async function handler(req, res) {
         headers: { 'Authorization': `Bearer ${tokenData.access_token}` },
       })
       const userData = await userRes.json()
-      // Kick returns { data: [{ username, ... }] }
       username = userData.data?.[0]?.username || userData.data?.[0]?.name || ''
     } catch (_) {}
 
