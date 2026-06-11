@@ -21,6 +21,7 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
   const { ready: twSendReady, send: twSend } = useTwitchSend(twitchAuth?.token, twitchAuth?.username)
   const xReady    = !!xAuth?.token
   const kickReady = !!kickAuth?.token
+  const kickBidRef = useRef(null)
 
   const hookStreamers = (sources || []).map(s => ({
     name: s.label || s.channel,
@@ -30,6 +31,21 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
   const add = useCallback(msg => setMsgs(p => [...p.slice(-399), msg]), [])
   useTwitchChat(hookStreamers, add)
   useKickChat(hookStreamers, add, setKickStatus)
+
+  // Resolve the watched Kick channel's broadcaster id so sends go into THAT chat
+  const kickChannel = (sources || []).find(s => s.platform === 'kick')?.channel || ''
+  useEffect(() => {
+    kickBidRef.current = null
+    if (!kickChannel || !kickAuth?.token) return
+    fetch(`/api/kick-chatroom?channel=${encodeURIComponent(kickChannel)}&token=${encodeURIComponent(kickAuth.token)}`)
+      .then(r => r.json()).then(d => { if (d && d.broadcasterUserId) kickBidRef.current = d.broadcasterUserId }).catch(() => {})
+  }, [kickChannel, kickAuth?.token])
+
+  // Our own handles across platforms — used to highlight messages we send
+  const ownNames = new Set([
+    twitchAuth?.username, xAuth?.username, kickAuth?.username,
+    localStorage.getItem('twitch_username'), localStorage.getItem('x_username'), localStorage.getItem('kick_username'),
+  ].filter(Boolean).map(n => String(n).toLowerCase().replace(/^@/, '')))
 
   // X chat from the browser extension (scrapes the iframe below)
   useEffect(() => {
@@ -78,14 +94,18 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
     const ok = [], failed = []
     if (twSendReady && myTwitchCh) { twSend([myTwitchCh], text); ok.push('Twitch') }
     else if (twSendReady) { twSend(hookStreamers.filter(s => s.twitch).map(s => s.twitch), text); ok.push('Twitch') }
-    if (xReady) {
-      try { const r = await fetch('/api/x-tweet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, accessToken: xAuth.token }) }); const d = await r.json(); if (r.ok) ok.push('X'); else failed.push(`X: ${d.error}`) } catch (e) { failed.push(`X: ${e.message}`) }
+    if (listenerUp) {
+      // Post into the X LIVE CHAT via the local listener (the logged-in X window types it in)
+      try { const r = await fetch('http://localhost:5124/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) }); const d = await r.json().catch(() => ({})); if (r.ok && d.ok) ok.push('X'); else failed.push(`X: ${d.reason || 'listener could not post'}`) } catch (e) { failed.push(`X: ${e.message}`) }
+    } else if (xReady) {
+      // No listener running — fall back to posting a tweet via the API
+      try { const r = await fetch('/api/x-tweet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, accessToken: xAuth.token }) }); const d = await r.json(); if (r.ok) ok.push('X (tweet)'); else failed.push(`X: ${d.error}`) } catch (e) { failed.push(`X: ${e.message}`) }
     }
     if (kickReady) {
-      try { const r = await fetch('/api/kick-send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: text, accessToken: kickAuth.token }) }); const d = await r.json(); if (r.ok) ok.push('Kick'); else failed.push(`Kick: ${d.error}`) } catch (e) { failed.push(`Kick: ${e.message}`) }
+      try { const r = await fetch('/api/kick-send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: text, accessToken: kickAuth.token, broadcasterUserId: kickBidRef.current || undefined }) }); const d = await r.json(); if (r.ok) ok.push('Kick'); else failed.push(`Kick: ${d.error}`) } catch (e) { failed.push(`Kick: ${e.message}`) }
     }
     dbg('CHAT send', { ok, failed })
-    const anyConnected = twSendReady || xReady || kickReady
+    const anyConnected = twSendReady || xReady || kickReady || listenerUp
     setSendStatus(!anyConnected ? { ok: false, text: 'Connect Twitch, X or Kick to send' } : { ok: ok.length > 0, text: (ok.length ? `✓ ${ok.join(' + ')}` : '') + (failed.length ? `  ⚠ ${failed.join(' · ')}` : '') })
     setTimeout(() => setSendStatus(null), 5000)
   }
@@ -103,7 +123,7 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
   const twCount = msgs.filter(m => m.platform === 'twitch').length
   const kkCount = msgs.filter(m => m.platform === 'kick').length
   const xCount  = msgs.filter(m => m.platform === 'x').length
-  const targets = [twSendReady && 'Twitch', xReady && 'X', kickReady && 'Kick'].filter(Boolean)
+  const targets = [twSendReady && 'Twitch', (xReady || listenerUp) && 'X', kickReady && 'Kick'].filter(Boolean)
 
   const isDesktop = typeof window !== 'undefined' && !!window.desktop
   // Desktop: open/scrape the X chat in its own native window (reads it directly)
@@ -163,11 +183,15 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
         {visible.map(msg => {
           const pc = PLAT[msg.platform]?.color || '#c8c8e0'
           const uc = msg.userColor || pc
+          const mine = msg.username && ownNames.has(String(msg.username).toLowerCase().replace(/^@/, ''))
           return (
-            <div key={msg.id} style={{ padding: '4px 12px', fontSize: 12.5, lineHeight: 1.5 }}
-              onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
-              onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
+            <div key={msg.id} style={{ padding: '4px 12px', fontSize: 12.5, lineHeight: 1.5,
+              background: mine ? 'rgba(145,71,255,0.14)' : 'transparent',
+              borderLeft: mine ? '3px solid #9147ff' : '3px solid transparent' }}
+              onMouseOver={e => e.currentTarget.style.background = mine ? 'rgba(145,71,255,0.2)' : 'rgba(255,255,255,0.02)'}
+              onMouseOut={e => e.currentTarget.style.background = mine ? 'rgba(145,71,255,0.14)' : 'transparent'}>
               <span style={{ fontSize: 9, color: pc, fontWeight: 700, marginRight: 5, background: pc + '1e', border: `1px solid ${pc}33`, borderRadius: 4, padding: '0 5px', whiteSpace: 'nowrap' }}>{msg.platform === 'twitch' ? '🟣' : msg.platform === 'kick' ? '🟢' : '✖'} {msg.streamer}</span>
+              {mine && <span style={{ fontSize: 9, color: '#fff', fontWeight: 800, marginRight: 5, background: '#9147ff', borderRadius: 4, padding: '0 5px' }}>YOU</span>}
               <span style={{ fontWeight: 700, color: uc, marginRight: 4 }}>{msg.username}</span>
               <span style={{ color: '#c0c0d8' }}>{msg.message}</span>
             </div>

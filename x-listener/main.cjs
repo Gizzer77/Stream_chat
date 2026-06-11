@@ -49,6 +49,50 @@ const SCRAPER_JS = `(function(){
   }catch(e){ return { items: [], debug: { error: String(e) } }; }
 })()`
 
+// Inject a message into the X livechat composer and submit it.
+function SEND_JS(text){
+  var T = JSON.stringify(String(text));
+  return `(function(){
+    try{
+      var text = ${T};
+      var root = document.querySelector('[data-testid="chatContainer"]') || document.body;
+      // composer: contenteditable (Draft.js), textbox role, or a textarea/input near the chat
+      var box = document.querySelector('[data-testid="chatContainer"] [contenteditable="true"], [data-testid="chatContainer"] [role="textbox"], [data-testid="chatContainer"] textarea')
+             || document.querySelector('[contenteditable="true"][role="textbox"], [role="textbox"][contenteditable="true"]')
+             || document.querySelector('[contenteditable="true"]')
+             || document.querySelector('textarea, input[type="text"]');
+      if(!box) return { ok:false, reason:'composer not found' };
+      box.focus();
+      var isCE = box.getAttribute('contenteditable')==='true' || box.isContentEditable;
+      if(isCE){
+        // execCommand drives Draft.js / React contenteditable correctly
+        document.execCommand('selectAll', false, null);
+        document.execCommand('insertText', false, text);
+        box.dispatchEvent(new InputEvent('input', { bubbles:true, data:text, inputType:'insertText' }));
+      } else {
+        var setter = Object.getOwnPropertyDescriptor(box.__proto__, 'value');
+        if(setter && setter.set) setter.set.call(box, text); else box.value = text;
+        box.dispatchEvent(new Event('input', { bubbles:true }));
+      }
+      // Try Enter to submit
+      function key(type){ box.dispatchEvent(new KeyboardEvent(type, { key:'Enter', code:'Enter', keyCode:13, which:13, bubbles:true })); }
+      key('keydown'); key('keypress'); key('keyup');
+      // Fallback: click an explicit send button if the text is still in the box
+      var stillThere = isCE ? (box.innerText||'').trim().length>0 : (box.value||'').trim().length>0;
+      if(stillThere){
+        var btn = document.querySelector('[data-testid="chatContainer"] [role="button"][aria-label*="end" i], [data-testid="chatContainer"] button, [aria-label*="Send" i], [data-testid*="end" i]');
+        if(btn){ btn.click(); }
+      }
+      return { ok:true, method:isCE?'contenteditable':'input' };
+    }catch(e){ return { ok:false, reason:String(e) }; }
+  })()`;
+}
+async function sendToChat(text){
+  if(!xWin || xWin.isDestroyed()) return { ok:false, reason:'X chat window not open — open a channel first' };
+  try{ return await xWin.webContents.executeJavaScript(SEND_JS(text), true); }
+  catch(e){ return { ok:false, reason:String(e) }; }
+}
+
 function pushItems(items) {
   for (const it of items) { seq++; buffer.push({ seq, id: it.id, username: it.username, message: it.message }) }
   if (buffer.length > 800) buffer = buffer.slice(-800)
@@ -95,6 +139,19 @@ http.createServer((req, res) => {
   }
   if (u.pathname === '/set') { const c = u.searchParams.get('channel'); if (c) openChannel(c); res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, channel })); return }
   if (u.pathname === '/status') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ channel, count: seq, listening: !!xWin })); return }
+  if (u.pathname === '/send') {
+    // accept ?text= (GET) or JSON/body POST
+    const fromQuery = u.searchParams.get('text')
+    const finish = (text) => {
+      if (!text) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok:false, reason:'no text' })); return }
+      sendToChat(text).then(r => { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(r)) })
+    }
+    if (fromQuery != null) { finish(fromQuery); return }
+    let body = ''
+    req.on('data', c => { body += c; if (body.length > 4000) req.destroy() })
+    req.on('end', () => { let t = ''; try { t = (JSON.parse(body || '{}').text) || '' } catch (_) { t = '' } finish(t) })
+    return
+  }
   if (u.pathname === '/debug') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ channel, count: seq, listening: !!xWin, lastDebug }, null, 2)); return }
   res.writeHead(404); res.end('not found')
 }).listen(PORT, () => console.log('X listener on http://localhost:' + PORT))
