@@ -193,15 +193,8 @@ export default function Dashboard() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px', background: 'linear-gradient(180deg,rgba(16,16,30,0.98),rgba(9,9,18,0.96))', borderBottom: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 2px 14px rgba(0,0,0,0.35)', flexShrink: 0, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 14, fontWeight: 900, letterSpacing: '0.01em', background: 'linear-gradient(135deg,#9d92c4,#84aac2)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', flexShrink: 0, marginRight: 4 }}>🎛 Market Bubble</span>
 
-        {/* Connected accounts (persistent) */}
-        <div style={{ display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
-          {twitchAuth && chip('#c084fc', 'rgba(145,71,255,0.14)', 'rgba(145,71,255,0.3)', `🟣 @${twitchAuth.username || 'connected'}`)}
-          {kickAuth   && chip('#7bff4d', 'rgba(83,252,24,0.1)',   'rgba(83,252,24,0.25)', `🟢 @${kickAuth.username || 'connected'}`)}
-          {xAuth      && chip('#cbd5e1', 'rgba(226,232,240,0.08)', 'rgba(226,232,240,0.2)', `✖ @${xAuth.username || 'connected'}`)}
-        </div>
-
         {/* Live viewer counts (moved into the top bar) */}
-        <div style={{ flex: '1 1 220px', minWidth: 0, overflowX: 'auto' }}><ViewerBar sources={sources} /></div>
+        <div style={{ flex: '1 1 220px', minWidth: 0, overflow: 'hidden' }}><ViewerBar sources={sources} /></div>
 
         <div style={{ flex: 1 }} />
 

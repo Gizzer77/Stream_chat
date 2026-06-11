@@ -232,7 +232,7 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, roo
           const uc = msg.userColor || pc
           const mine = msg.username && ownNames.has(String(msg.username).toLowerCase().replace(/^@/, ''))
           return (
-            <div key={msg.id} style={{ padding: '4px 12px', fontSize: 12.5, lineHeight: 1.5,
+            <div key={msg.id} style={{ padding: '5px 12px', fontSize: 14, lineHeight: 1.55,
               background: mine ? 'rgba(145,71,255,0.14)' : 'transparent',
               borderLeft: mine ? '3px solid #9147ff' : '3px solid transparent' }}
               onMouseOver={e => e.currentTarget.style.background = mine ? 'rgba(145,71,255,0.2)' : 'rgba(255,255,255,0.02)'}

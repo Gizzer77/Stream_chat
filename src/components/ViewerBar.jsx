@@ -36,7 +36,7 @@ export default function ViewerBar({ sources }) {
   const total = entries.reduce((s, e) => s + (e.viewers || 0), 0)
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 9, overflowX: 'auto', minWidth: 0 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap', rowGap: 4, minWidth: 0 }}>
       {/* Total — clean, no box */}
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 800, color: '#cdd3df', whiteSpace: 'nowrap' }}>
         <span>👥</span>{total.toLocaleString()}
