@@ -506,7 +506,7 @@ export default function Setup() {
   }
 
   return (
-    <div style={{ minHeight:'100vh', background:'#06060c', color:'#eeeef5', fontFamily:"'Inter','Segoe UI',system-ui,sans-serif", overflowY:'auto' }}>
+    <div style={{ height:'100%', minHeight:0, background:'#06060c', color:'#eeeef5', fontFamily:"'Inter','Segoe UI',system-ui,sans-serif", overflowY:'auto' }}>
       <div style={{ position:'fixed', inset:0, pointerEvents:'none', zIndex:0,
         background: isGuest
           ? 'radial-gradient(ellipse 80% 50% at 50% -10%,rgba(84,192,255,0.1) 0%,transparent 70%)'
