@@ -69,7 +69,7 @@ export function loadCfg() {
     useOwnChat:   c.useOwnChat !== false,
     customSources: Array.isArray(c.customSources) ? c.customSources : [],
     c3poProvider: c.c3poProvider || 'anthropic',
-    c3poApiKey:   c.c3poApiKey   || '',
+    c3poApiKey:   c.c3poApiKey   || localStorage.getItem('c3po_api_key') || '',
     c3poWakeWord: 'hey jarvis', // fixed wake word
     c3poAutoSpeak: c.c3poAutoSpeak !== false,
     polyQ:        c.polyQ        || '',
@@ -82,6 +82,7 @@ export function saveCfg(c) {
   // keep legacy keys in sync so OAuth code that reads them still works
   if (c.twClientId) localStorage.setItem('twitch_client_id', c.twClientId)
   if (c.xClientId)  localStorage.setItem('x_client_id', c.xClientId)
+  if (c.c3poApiKey) localStorage.setItem('c3po_api_key', c.c3poApiKey)
 }
 
 // Effective chat/viewer sources from config + co-streamers + own accounts.

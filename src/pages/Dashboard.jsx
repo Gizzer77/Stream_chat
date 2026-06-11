@@ -207,7 +207,7 @@ export default function Dashboard() {
       {/* Layout: Polymarket = thin glanceable strip on the left · center = stream
           on top with C-3PO filling all the way down · combined chat (bigger) on
           the right. Hide any panel with its ✕ and restore it from the top bar. */}
-      <div style={{ flex: 1, display: 'flex', gap: 14, padding: 14, overflow: 'hidden', minHeight: 0 }}>
+      <div style={{ flex: 1, display: 'flex', gap: 16, padding: 16, overflow: 'hidden', minHeight: 0 }}>
         {show('polymarket') && (
           <div style={{ width: 'clamp(150px, 15%, 210px)', flexShrink: 0, height: '100%' }}>{P('polymarket')}</div>
         )}
@@ -217,7 +217,7 @@ export default function Dashboard() {
           {!show('stream') && !show('c3po') && <div style={{ flex: 1 }} />}
         </div>
         {show('chat') && (
-          <div style={{ width: 'clamp(360px, 42%, 560px)', flexShrink: 0, height: '100%' }}>{P('chat')}</div>
+          <div style={{ width: 'clamp(420px, 52%, 720px)', flexShrink: 0, height: '100%' }}>{P('chat')}</div>
         )}
         {visiblePanels.length === 0 && (
           <div style={{ flex: 1, textAlign: 'center', color: '#55556a', fontSize: 13, padding: 40 }}>All panels hidden — add them back from the top bar.</div>
