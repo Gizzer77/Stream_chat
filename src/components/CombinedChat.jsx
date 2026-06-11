@@ -69,7 +69,7 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
     return () => { alive = false; clearTimeout(timer) }
   }, [])
 
-  useEffect(() => { if (chatRef.current && filter !== 'x') chatRef.current.scrollTop = chatRef.current.scrollHeight }, [msgs, filter])
+  useEffect(() => { if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight }, [msgs, filter])
 
   async function handleSend() {
     const text = sendMsg.trim()
@@ -111,7 +111,6 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
   // Standalone listener: tell it which channel to watch (best-effort)
   useEffect(() => { const u = xLivechat?.channel; if (u) fetch(`http://localhost:5124/set?channel=${encodeURIComponent(u)}`).catch(() => {}) }, [xLivechat?.channel])
 
-  const showIframe = filter === 'x' && !!xLivechat && !isDesktop   // X tab = pop-out iframe (web only)
 
   const tabs = [
     { key: 'all',    label: `All ${msgs.length}`, color: '#c8c8e0' },
@@ -132,65 +131,48 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
             border: `1px solid ${filter === tab.key ? tab.color + '55' : 'transparent'}`,
           }}>{tab.label}</button>
         ))}
-        {xLivechat && <button onClick={() => window.open(xLivechat.url, 'xchat', 'width=420,height=640')} title="Pop out X chat in its own window" style={{ background: 'rgba(29,155,240,0.16)', border: '1px solid rgba(29,155,240,0.4)', borderRadius: 6, color: '#1d9bf0', fontSize: 10, cursor: 'pointer', padding: '3px 8px', fontWeight: 700 }}>✖ ↗</button>}
         <button onClick={onOpenSettings} style={{ marginLeft: 'auto', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, color: '#e8e8f5', fontSize: 10, cursor: 'pointer', padding: '3px 8px', fontWeight: 700 }}>⚙</button>
       </div>
 
       {kickNotice && (
         <div style={{ flexShrink: 0, padding: '5px 10px', fontSize: 10.5, color: kickStatus?.state === 'blocked' ? '#f87171' : '#8a8aa5', background: 'rgba(83,252,24,0.06)', borderBottom: '1px solid rgba(83,252,24,0.14)' }}>🟢 {kickNotice}</div>
       )}
-      {xLivechat && !isDesktop && (
+      {(xLivechat || xReady) && !isDesktop && (
         listenerUp ? (
           <div style={{ flexShrink: 0, padding: '5px 10px', fontSize: 10.5, color: '#22c55e', background: 'rgba(34,197,94,0.07)', borderBottom: '1px solid rgba(34,197,94,0.16)', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 5px #22c55e' }} />✖ X Chat Listener connected — X messages are merging into All
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 5px #22c55e' }} />✖ X Chat Listener connected — X messages are merging in
           </div>
         ) : (
-          <div style={{ flexShrink: 0, padding: '6px 10px', fontSize: 10.5, color: '#fbbf24', background: 'rgba(251,191,36,0.08)', borderBottom: '1px solid rgba(251,191,36,0.18)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span>✖ To pull X chat into the combined feed, download &amp; run the <b>X Chat Listener</b> app.</span>
-            <a href="/x-listener.zip" download style={{ background: 'rgba(29,155,240,0.18)', border: '1px solid rgba(29,155,240,0.4)', color: '#1d9bf0', borderRadius: 6, padding: '2px 9px', fontSize: 10, fontWeight: 700, textDecoration: 'none' }}>⬇ Download listener</a>
+          <div style={{ flexShrink: 0, padding: '9px 11px', background: 'rgba(29,155,240,0.1)', borderBottom: '1px solid rgba(29,155,240,0.3)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 11.5, color: '#cbd5e1', fontWeight: 600, flex: 1, minWidth: 160 }}>✖ <b style={{ color: '#1d9bf0' }}>X chat needs the Listener.</b> Download it, open it, and log into X once — then X chat flows in here.</span>
+            <a href="/x-listener.exe" download style={{ background: 'linear-gradient(135deg,#1d9bf0,#0f6fb8)', border: 'none', color: '#fff', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 800, textDecoration: 'none', whiteSpace: 'nowrap' }}>⬇ Download &amp; Run</a>
+            <a href="/x-listener.zip" download style={{ color: '#8a8aa5', fontSize: 10, textDecoration: 'underline' }}>source</a>
           </div>
         )
       )}
 
-      {/* Body: message list + the always-mounted X iframe (visible only on the X tab) */}
-      <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
-        <div ref={chatRef} style={{ position: 'absolute', inset: 0, overflowY: 'auto', padding: '4px 0', display: showIframe ? 'none' : 'block' }}>
-          {visible.length === 0 && (
-            <div style={{ padding: 24, textAlign: 'center', color: '#55556a', fontSize: 12 }}>
-              {(sources || []).length === 0 ? 'Add chat sources in Settings ⚙' : 'Waiting for messages…'}
+      {/* Combined message list — X messages (from the listener) render here just like Twitch/Kick */}
+      <div ref={chatRef} style={{ flex: 1, overflowY: 'auto', padding: '4px 0', minHeight: 0 }}>
+        {visible.length === 0 && (
+          <div style={{ padding: 24, textAlign: 'center', color: '#55556a', fontSize: 12 }}>
+            {filter === 'x'
+              ? (xLivechat ? 'Waiting for X messages — make sure the X Chat Listener is running.' : 'Add an X stream (x.com/username) as a source.')
+              : ((sources || []).length === 0 ? 'Add chat sources in Settings ⚙' : 'Waiting for messages…')}
+          </div>
+        )}
+        {visible.map(msg => {
+          const pc = PLAT[msg.platform]?.color || '#c8c8e0'
+          const uc = msg.userColor || pc
+          return (
+            <div key={msg.id} style={{ padding: '4px 12px', fontSize: 12.5, lineHeight: 1.5 }}
+              onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+              onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
+              <span style={{ fontSize: 9, color: pc, fontWeight: 700, marginRight: 5, background: pc + '1e', border: `1px solid ${pc}33`, borderRadius: 4, padding: '0 5px', whiteSpace: 'nowrap' }}>{msg.platform === 'twitch' ? '🟣' : msg.platform === 'kick' ? '🟢' : '✖'} {msg.streamer}</span>
+              <span style={{ fontWeight: 700, color: uc, marginRight: 4 }}>{msg.username}</span>
+              <span style={{ color: '#c0c0d8' }}>{msg.message}</span>
             </div>
-          )}
-          {visible.map(msg => {
-            const pc = PLAT[msg.platform]?.color || '#c8c8e0'
-            const uc = msg.userColor || pc
-            return (
-              <div key={msg.id} style={{ padding: '4px 12px', fontSize: 12.5, lineHeight: 1.5 }}
-                onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
-                onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
-                <span style={{ fontSize: 9, color: pc, fontWeight: 700, marginRight: 5, background: pc + '1e', border: `1px solid ${pc}33`, borderRadius: 4, padding: '0 5px', whiteSpace: 'nowrap' }}>{msg.platform === 'twitch' ? '🟣' : msg.platform === 'kick' ? '🟢' : '✖'} {msg.streamer}</span>
-                <span style={{ fontWeight: 700, color: uc, marginRight: 4 }}>{msg.username}</span>
-                <span style={{ color: '#c0c0d8' }}>{msg.message}</span>
-              </div>
-            )
-          })}
-        </div>
-
-        {/* Kept mounted so the extension can always scrape it; only shown on the X tab. */}
-        {xLivechat && (
-          <iframe src={xLivechat.url} title="X live chat"
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none', background: '#000', visibility: showIframe ? 'visible' : 'hidden' }} />
-        )}
-        {filter === 'x' && !xLivechat && (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: '#55556a', fontSize: 12, padding: 20 }}>
-            Add an X stream (x.com/username) as a source to embed its live chat.
-          </div>
-        )}
-        {filter === 'x' && xLivechat && isDesktop && (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: '#8a8aa5', fontSize: 12, padding: 20, gap: 12 }}>
-            <div>X live chat is open in its own window — log in there once.<br/>Its messages flow into <b>All</b> automatically.</div>
-            <button onClick={() => window.desktop?.showXWindow?.()} style={{ background: 'rgba(29,155,240,0.16)', border: '1px solid rgba(29,155,240,0.4)', borderRadius: 8, color: '#1d9bf0', fontSize: 12, fontWeight: 700, padding: '7px 14px', cursor: 'pointer' }}>Show X chat window</button>
-          </div>
-        )}
+          )
+        })}
       </div>
 
       {/* Send box */}
