@@ -14,9 +14,24 @@
   "build": {
     "appId": "com.marketbubble.xlistener",
     "productName": "MB X Chat Listener",
-    "files": ["**/*", "!release/**", "!node_modules/.cache/**"],
-    "directories": { "output": "release" },
-    "win": { "target": "portable" },
-    "portable": { "artifactName": "MB-X-Chat-Listener.exe" }
+    "files": [
+      "**/*",
+      "!release/**",
+      "!node_modules/.cache/**"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "portable",
+      "signingHashAlgorithms": [
+        "sha256"
+      ],
+      "rfc3161TimeStampServer": "http://timestamp.digicert.com",
+      "signAndEditExecutable": true
+    },
+    "portable": {
+      "artifactName": "MB-X-Chat-Listener.exe"
+    }
   }
 }
