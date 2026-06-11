@@ -3,6 +3,7 @@
 
 const rooms   = new Map() // roomCode → Map(userId → { name, color, ts })
 const answers = new Map() // roomCode → Array of answer objects (max 20)
+const chats   = new Map() // roomCode → { seq, list: [ {seq,id,platform,streamer,username,message,userColor} ] }
 
 const COLORS = ['#9147ff','#54c0ff','#ff7b54','#53fc18','#ffd700','#f472b6','#fb923c']
 const colorFor = (userId) => COLORS[parseInt(userId.slice(-4), 16) % COLORS.length]
@@ -38,7 +39,16 @@ export default async function handler(req, res) {
     const locked      = room.get('__locked__')?.value || false
     const roomAnswers = answers.get(code) || []
 
-    res.status(200).json({ users, count: users.length, locked, answers: roomAnswers })
+    // Relayed combined-chat (only when the client asks, via chatSince)
+    let chat, chatLast
+    if (req.query.chatSince !== undefined) {
+      const since = parseInt(req.query.chatSince, 10) || 0
+      const store = chats.get(code) || { seq: 0, list: [] }
+      chat = store.list.filter(m => m.seq > since)
+      chatLast = store.seq
+    }
+
+    res.status(200).json({ users, count: users.length, locked, answers: roomAnswers, chat, chatLast })
     return
   }
 
@@ -59,6 +69,23 @@ export default async function handler(req, res) {
       list.push({ id: Math.random().toString(36).slice(2), question, answer, sources: sources || [], askedBy: askedBy || 'Someone', ts: Date.now() })
       if (list.length > 20) list.splice(0, list.length - 20)
       res.status(200).json({ ok: true })
+      return
+    }
+
+    // Relay combined-chat messages so everyone in the room sees both streamers' chats
+    if (action === 'chat') {
+      const incoming = Array.isArray(req.body.messages) ? req.body.messages : []
+      if (!chats.has(roomCode)) chats.set(roomCode, { seq: 0, list: [] })
+      const store = chats.get(roomCode)
+      const seen = new Set(store.list.map(m => m.id))
+      for (const m of incoming) {
+        if (!m || !m.id || seen.has(m.id)) continue
+        seen.add(m.id)
+        store.seq++
+        store.list.push({ seq: store.seq, id: m.id, platform: m.platform || 'x', streamer: m.streamer || '', username: m.username || '', message: String(m.message || '').slice(0, 500), userColor: m.userColor || '' })
+      }
+      if (store.list.length > 300) store.list = store.list.slice(-300)
+      res.status(200).json({ ok: true, last: store.seq })
       return
     }
 

@@ -486,7 +486,14 @@ export default function Setup() {
   function handleJoin() {
     setJoinErr('')
     const url=joinUrl.trim()
-    if(!url){setJoinErr('Paste a room link first.');return}
+    if(!url){setJoinErr('Paste a room link or enter a room code.');return}
+    // Bare room code (e.g. "ABC123") — no URL, just the 6-char code
+    if(/^[A-Za-z0-9]{4,8}$/.test(url) && !url.includes('/') && !url.includes('.')){
+      const code=url.toUpperCase()
+      const config=btoa(JSON.stringify({ roomCode: code }))
+      window.location.href=`${window.location.origin}/dashboard#${config}`
+      return
+    }
     try {
       const parsed=new URL(url)
       if(parsed.searchParams.get('invite')){window.location.href=url;return}
@@ -598,10 +605,10 @@ export default function Setup() {
           <div style={{ flex:1, height:1, background:'rgba(255,255,255,0.04)' }} />
         </div>
         <div style={{ background:'linear-gradient(135deg,#0f0f1c,#0a0a14)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:16, padding:'20px 22px' }}>
-          <div style={{ fontSize:13, fontWeight:700, color:'#33334a', marginBottom:12 }}>Paste a room link or invite link</div>
+          <div style={{ fontSize:13, fontWeight:700, color:'#33334a', marginBottom:12 }}>Paste a room link, invite link, or enter a room code</div>
           <div style={{ display:'flex', gap:10 }}>
             <input value={joinUrl} onChange={e=>{setJoinUrl(e.target.value);setJoinErr('')}} onKeyDown={e=>e.key==='Enter'&&handleJoin()}
-              placeholder="https://..."
+              placeholder="https://…  or  room code (e.g. ABC123)"
               style={{ flex:1, background:'#08080f', border:'1px solid rgba(255,255,255,0.07)', borderRadius:10, padding:'11px 14px', fontSize:13, color:'#eeeef5', outline:'none' }}
               onFocus={e=>e.target.style.borderColor='rgba(145,71,255,0.4)'}
               onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.07)'}

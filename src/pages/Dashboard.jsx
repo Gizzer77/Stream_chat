@@ -155,7 +155,7 @@ export default function Dashboard() {
   function renderPanel(id) {
     switch (id) {
       case 'stream':     return <StreamPlayer sources={sources} />
-      case 'chat':       return <CombinedChat sources={sources} twitchAuth={twitchAuth} xAuth={xAuth} kickAuth={kickAuth} onOpenSettings={() => setSettingsTab('sources')} />
+      case 'chat':       return <CombinedChat sources={sources} twitchAuth={twitchAuth} xAuth={xAuth} kickAuth={kickAuth} roomCode={roomCode} onOpenSettings={() => setSettingsTab('sources')} />
       case 'polymarket': return <Polymarket defaultQuery={cfg.polyQ} limit={cfg.polyLimit} />
       case 'c3po':       return <C3POWidget provider={cfg.c3poProvider} apiKey={cfg.c3poApiKey} wakeWord={cfg.c3poWakeWord} autoSpeak={cfg.c3poAutoSpeak} onOpenSettings={() => setSettingsTab('c3po')} />
       default: return null

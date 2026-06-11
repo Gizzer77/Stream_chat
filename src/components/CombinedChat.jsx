@@ -7,7 +7,7 @@ import { PLAT, dbg } from '../lib/dash'
 // Combined chat. Reads Twitch IRC + Kick (Pusher). For X, the "X" filter tab
 // shows the pop-out live-chat iframe directly; the browser extension scrapes
 // that same iframe and feeds its messages into the "All" feed.
-export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onOpenSettings }) {
+export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, roomCode = '', onOpenSettings }) {
   const [msgs,   setMsgs]   = useState([])
   const [filter, setFilter] = useState('all')
   const chatRef = useRef(null)
@@ -16,6 +16,11 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
   const [sendStatus, setSendStatus] = useState(null)
   const [kickStatus, setKickStatus] = useState(null)
   const [listenerUp, setListenerUp] = useState(false)
+  // Room-wide chat relay: everyone in the room sees both streamers' merged chats
+  const [roomUserId] = useState(() => { let id = sessionStorage.getItem('sc_user_id'); if (!id) { id = 'u' + Math.random().toString(36).slice(2, 10); sessionStorage.setItem('sc_user_id', id) } return id })
+  const relayPushed = useRef(new Set())
+  const relayRemote = useRef(new Set())
+  const msgsRef = useRef([])
 
   const myTwitchCh = localStorage.getItem('twitch_username') || ''
   const { ready: twSendReady, send: twSend } = useTwitchSend(twitchAuth?.token, twitchAuth?.username)
@@ -87,6 +92,45 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
     poll()
     return () => { alive = false; clearTimeout(timer) }
   }, [])
+
+  useEffect(() => { msgsRef.current = msgs }, [msgs])
+
+  // ── Combined-chat relay ─────────────────────────────────────────────────────
+  // Push our locally-received messages to the room and pull everyone else's, so
+  // each person sees both streamers' Twitch/Kick/X chats merged together.
+  useEffect(() => {
+    if (!roomCode) return
+    const pushed = relayPushed.current, remote = relayRemote.current
+    // seed with what's already on screen so we relay live-forward, not the backlog
+    msgsRef.current.forEach(m => m.id && pushed.add(m.id))
+    let alive = true, lastSeq = 0, timer
+    async function tick() {
+      if (!alive) return
+      const toPush = msgsRef.current.filter(m => m.id && !pushed.has(m.id) && !remote.has(m.id))
+      if (toPush.length) {
+        toPush.forEach(m => pushed.add(m.id))
+        try { await fetch('/api/presence', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomCode, userId: roomUserId, action: 'chat', messages: toPush.map(m => ({ id: m.id, platform: m.platform, streamer: m.streamer, username: m.username, message: m.message, userColor: m.userColor })) }) }) } catch (_) {}
+      }
+      try {
+        const r = await fetch(`/api/presence?room=${encodeURIComponent(roomCode)}&chatSince=${lastSeq}`)
+        if (r.ok) {
+          const d = await r.json()
+          if (Array.isArray(d.chat) && d.chat.length) {
+            lastSeq = d.chatLast || lastSeq
+            setMsgs(prev => {
+              const have = new Set(prev.map(x => x.id))
+              const add = []
+              for (const m of d.chat) { if (!have.has(m.id) && !pushed.has(m.id)) { remote.add(m.id); add.push({ id: m.id, platform: m.platform, streamer: m.streamer, username: m.username, message: m.message, userColor: m.userColor || '#cbd5e1' }) } }
+              return add.length ? [...prev.slice(-399), ...add] : prev
+            })
+          } else if (d.chatLast) lastSeq = d.chatLast
+        }
+      } catch (_) {}
+      if (alive) timer = setTimeout(tick, 2000)
+    }
+    timer = setTimeout(tick, 1500)
+    return () => { alive = false; clearTimeout(timer) }
+  }, [roomCode, roomUserId])
 
   useEffect(() => { if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight }, [msgs, filter])
 
