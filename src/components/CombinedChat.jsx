@@ -33,7 +33,10 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
   useKickChat(hookStreamers, add, setKickStatus)
 
   // Resolve the watched Kick channel's broadcaster id so sends go into THAT chat
-  const kickChannel = (sources || []).find(s => s.platform === 'kick')?.channel || ''
+  const myKick = (localStorage.getItem('kick_username') || '').toLowerCase()
+  const kickSources = (sources || []).filter(s => s.platform === 'kick')
+  // Prefer a Kick channel that ISN'T your own auto-added one, so sends go to the channel you're watching
+  const kickChannel = (kickSources.find(s => (s.channel || '').toLowerCase() !== myKick) || kickSources[0])?.channel || ''
   useEffect(() => {
     kickBidRef.current = null
     if (!kickChannel || !kickAuth?.token) return
