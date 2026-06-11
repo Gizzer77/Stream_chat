@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { parseConfig, genCodeVerifier, genCodeChallenge, loadCfg, saveCfg, effectiveSources, DEFAULT_LAYOUT, dbg } from '../lib/dash'
+import { parseConfig, genCodeVerifier, genCodeChallenge, loadCfg, saveCfg, effectiveSources, DEFAULT_LAYOUT, GRID, dbg } from '../lib/dash'
 import Panel        from '../components/Panel'
 import GridLayout   from '../components/GridLayout'
 import StreamPlayer from '../components/StreamPlayer'
@@ -116,7 +116,22 @@ export default function Dashboard() {
   }
 
   function persistCfg(next) { setCfg(next); saveCfg(next) }
-  function setPanel(id, visible) { persistCfg({ ...cfg, panels: { ...cfg.panels, [id]: visible } }) }
+  function firstOpenCell(layoutMap, visibleIds) {
+    const occ = new Set()
+    visibleIds.forEach(pid => { const L = layoutMap[pid]; if (!L) return; for (let y = L.y; y < L.y + L.h; y++) for (let x = L.x; x < L.x + L.w; x++) occ.add(x + ',' + y) })
+    for (let y = 0; y < GRID.rows; y++) for (let x = 0; x < GRID.cols; x++) if (!occ.has(x + ',' + y)) return { x, y }
+    return { x: 0, y: 0 }
+  }
+  function setPanel(id, visible) {
+    if (visible) {
+      // Drop the panel into the first open square at 1x1 — user can resize from there
+      const visibleIds = PANEL_ORDER.filter(p => cfg.panels[p] !== false)
+      const cell = firstOpenCell(cfg.layout, visibleIds)
+      persistCfg({ ...cfg, panels: { ...cfg.panels, [id]: true }, layout: { ...cfg.layout, [id]: { x: cell.x, y: cell.y, w: 1, h: 1 } } })
+    } else {
+      persistCfg({ ...cfg, panels: { ...cfg.panels, [id]: false } })
+    }
+  }
 
   // ── Room sharing ────────────────────────────────────────────────────────────
   const [, setRoomTick] = useState(0)

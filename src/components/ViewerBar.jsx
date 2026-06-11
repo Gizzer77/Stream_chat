@@ -35,21 +35,28 @@ export default function ViewerBar({ sources }) {
   const entries = Object.values(counts).sort((a, b) => (b.viewers || 0) - (a.viewers || 0))
   const total = entries.reduce((s, e) => s + (e.viewers || 0), 0)
 
-  const pill = (bg, border, color, children, key) => (
-    <span key={key} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color, background: bg, border: `1px solid ${border}`, borderRadius: 6, padding: '2px 8px', whiteSpace: 'nowrap' }}>{children}</span>
-  )
-
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 5, overflowX: 'auto', minWidth: 0 }}>
-      {pill('rgba(34,197,94,0.1)', 'rgba(34,197,94,0.25)', '#22c55e', <>👥 {total.toLocaleString()}</>, 'total')}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 9, overflowX: 'auto', minWidth: 0 }}>
+      {/* Total — clean, no box */}
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 800, color: '#cdd3df', whiteSpace: 'nowrap' }}>
+        <span>👥</span>{total.toLocaleString()}
+      </span>
+      <span style={{ width: 1, height: 13, background: 'rgba(255,255,255,0.09)', flexShrink: 0 }} />
       {entries.map(e => {
-        const c = e.platform === 'twitch' ? '#9147ff' : e.platform === 'kick' ? '#53fc18' : '#1d9bf0'
+        const c = e.platform === 'twitch' ? '#9b8cc7' : e.platform === 'kick' ? '#6fae8a' : '#7fa8c4'
         const em = e.platform === 'twitch' ? '🟣' : e.platform === 'kick' ? '🟢' : '✖'
+        const label = e.platform === 'twitch' ? 'Twitch' : e.platform === 'kick' ? 'Kick' : 'X'
         const val = e.platform === 'x' && (e.error || e.viewers == null) ? '—' : (e.viewers || 0).toLocaleString()
-        return pill(c + '14', c + '33', c, <>
-          <span style={{ width: 5, height: 5, borderRadius: '50%', background: e.live ? '#22c55e' : '#555', boxShadow: e.live ? '0 0 5px #22c55e' : 'none' }} />
-          {em} {e.name} <span style={{ color: '#eeeef5' }}>{val}</span>
-        </>, e.platform + e.name)
+        return (
+          <span key={e.platform + e.name} title={`${e.name} · ${label}${e.live ? ' · live' : ' · offline'}`}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, whiteSpace: 'nowrap', padding: '2px 4px', borderRadius: 8, cursor: 'default', transition: 'background .15s' }}
+            onMouseOver={ev => ev.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+            onMouseOut={ev => ev.currentTarget.style.background = 'transparent'}>
+            <span style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0, background: e.live ? '#5fbf85' : '#4a4a5a', boxShadow: e.live ? '0 0 5px #5fbf85' : 'none' }} />
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '1px 7px', borderRadius: 6, background: c + '1c', border: `1px solid ${c}33`, color: c, fontWeight: 700 }}>{em} {e.name}</span>
+            <span style={{ color: '#f0f0f5', fontWeight: 800 }}>{val}</span>
+          </span>
+        )
       })}
     </div>
   )
