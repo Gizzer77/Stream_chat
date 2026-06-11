@@ -102,7 +102,7 @@ export default function CombinedChat({ sources, twitchAuth, xAuth, kickAuth, onO
       try { const r = await fetch('/api/x-tweet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, accessToken: xAuth.token }) }); const d = await r.json(); if (r.ok) ok.push('X (tweet)'); else failed.push(`X: ${d.error}`) } catch (e) { failed.push(`X: ${e.message}`) }
     }
     if (kickReady) {
-      try { const r = await fetch('/api/kick-send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: text, accessToken: kickAuth.token, broadcasterUserId: kickBidRef.current || undefined }) }); const d = await r.json(); if (r.ok) ok.push('Kick'); else failed.push(`Kick: ${d.error}`) } catch (e) { failed.push(`Kick: ${e.message}`) }
+      try { const r = await fetch('/api/kick-send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: text, accessToken: kickAuth.token, channel: kickChannel || undefined, broadcasterUserId: kickBidRef.current || undefined }) }); const d = await r.json(); if (r.ok) ok.push('Kick'); else failed.push(`Kick: ${d.error}`) } catch (e) { failed.push(`Kick: ${e.message}`) }
     }
     dbg('CHAT send', { ok, failed })
     const anyConnected = twSendReady || xReady || kickReady || listenerUp

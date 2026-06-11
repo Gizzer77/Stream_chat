@@ -94,11 +94,11 @@ function PlatformTile({ platform, username, onDisconnect }) {
       </div>
       <div style={{ display:'flex', alignItems:'center', gap:6 }}>
         <div style={{ width:6, height:6, borderRadius:'50%', background:'#22c55e', boxShadow:'0 0 6px #22c55e' }} />
-        <button onClick={onDisconnect}
-          onMouseOver={e=>{ e.currentTarget.style.color='#ef4444'; setHov(true) }}
-          onMouseOut={e=>{ e.currentTarget.style.color='#33334a'; setHov(false) }}
-          style={{ background:'none', border:'none', color:'#33334a', cursor:'pointer', fontSize:11, fontWeight:700, padding:'2px 6px', transition:'color .15s' }}>
-          ✕
+        <button onClick={() => { if (window.confirm('Unlink @' + username + '? You can reconnect anytime.')) onDisconnect() }}
+          onMouseOver={e=>{ e.currentTarget.style.background='rgba(239,68,68,0.15)'; e.currentTarget.style.color='#ef4444'; e.currentTarget.style.borderColor='#ef444466'; setHov(true) }}
+          onMouseOut={e=>{ e.currentTarget.style.background='rgba(255,255,255,0.04)'; e.currentTarget.style.color='#9a9ab0'; e.currentTarget.style.borderColor='rgba(255,255,255,0.12)'; setHov(false) }}
+          style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:6, color:'#9a9ab0', cursor:'pointer', fontSize:11, fontWeight:800, padding:'4px 10px', transition:'all .15s' }}>
+          Unlink
         </button>
       </div>
     </div>
