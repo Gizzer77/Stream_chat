@@ -198,8 +198,10 @@ export default function Dashboard() {
           <button key={id} onClick={() => setPanel(id, true)} style={{ ...lightBtn, color: PANEL_META[id].accent }}>+ {PANEL_META[id].title}</button>
         ))}
         <button onClick={() => setSettingsTab('room')} style={lightBtn}>🔗 Room {roomCode ? `· ${roomCode}` : ''}</button>
+        <button onClick={() => setSettingsTab('accounts')} style={lightBtn}>👤 Accounts</button>
         <button onClick={() => setSettingsTab('sources')} style={lightBtn}>⚙ Settings</button>
         <button onClick={() => persistCfg({ ...cfg, panels: { stream: true, chat: true, viewers: true, polymarket: true, c3po: true } })} style={lightBtn}>Reset panels</button>
+        <button onClick={() => { window.location.href = '/' }} style={{ ...lightBtn, color: '#c084fc', borderColor: 'rgba(145,71,255,0.4)' }}>⬅ Back to Setup</button>
       </div>
 
       {/* Layout: Polymarket = thin glanceable strip on the left · center = stream
