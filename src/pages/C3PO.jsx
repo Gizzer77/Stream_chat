@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
-const WAKE_ALTS   = ['hey c3po', 'hey c3 p o', 'hey c 3 p o', 'hey three p o', 'a c3po', 'hey c3 po']
+const WAKE_ALTS   = ['hey jarvis', 'hey jarvas', 'hey jarviss', 'hey jervis', 'a jarvis', 'jarvis']
 const MAX_ANSWERS = 50
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -25,10 +25,10 @@ function extractQuestion(text) {
 function TutorialModal({ onClose }) {
   const steps = [
     { icon:'⚙️', title:'Set your API key', body:'Tap the ⚙ settings button and pick an AI provider. Paste your API key — it stays in your browser, never sent anywhere else. OpenRouter has a free tier if you don\'t have a key yet.' },
-    { icon:'🎙', title:'Say the wake word', body:'Press Start, then say "Hey C3PO" followed by your question out loud — like "Hey C3PO, what\'s the capital of France?" C3PO will hear it through your mic and look it up.' },
+    { icon:'🎙', title:'Say the wake word', body:'Press Start, then say "Hey Jarvis" followed by your question out loud — like "Hey Jarvis, what\'s the capital of France?" Jarvis will hear it through your mic and look it up.' },
     { icon:'⌨️', title:'Or type a question', body:'You can also type any question in the box at the bottom and hit Ask. Works the same way, no mic needed.' },
-    { icon:'🌐', title:'Universal vs Separate mode', body:'In Universal mode, both people in the room share one C3PO feed — when one person asks a question, both screens show the answer. In Separate mode, each person has their own private C3PO.' },
-    { icon:'🔊', title:'Auto read-aloud', body:'Enable Auto Read-Aloud in settings and C3PO will speak the answer back to you using your browser\'s text-to-speech. Great for keeping eyes on stream.' },
+    { icon:'🌐', title:'Universal vs Separate mode', body:'In Universal mode, both people in the room share one Jarvis feed — when one person asks a question, both screens show the answer. In Separate mode, each person has their own private Jarvis.' },
+    { icon:'🔊', title:'Auto read-aloud', body:'Enable Auto Read-Aloud in settings and Jarvis will speak the answer back to you using your browser\'s text-to-speech. Great for keeping eyes on stream.' },
   ]
   return (
     <div className="fade-in" style={{
@@ -46,7 +46,7 @@ function TutorialModal({ onClose }) {
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
             <span style={{ fontSize:22 }}>🤖</span>
             <div>
-              <div style={{ fontWeight:900, fontSize:17, color:'var(--gold)' }}>How to use C3PO</div>
+              <div style={{ fontWeight:900, fontSize:17, color:'var(--gold)' }}>How to use Jarvis</div>
               <div style={{ fontSize:11, color:'#44445a' }}>Your live stream AI assistant</div>
             </div>
           </div>
@@ -156,7 +156,7 @@ function SettingsModal({ apiKey, setApiKey, provider, setProvider, c3poMode, set
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24 }}>
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
             <span style={{ fontSize:22 }}>⚙️</span>
-            <span style={{ fontWeight:800, fontSize:17, color:'#f0f0f5' }}>C3PO Settings</span>
+            <span style={{ fontWeight:800, fontSize:17, color:'#f0f0f5' }}>Jarvis Settings</span>
           </div>
           <button onClick={onClose} style={{
             background:'rgba(255,255,255,0.06)', border:'none', borderRadius:8,
@@ -218,7 +218,7 @@ function SettingsModal({ apiKey, setApiKey, provider, setProvider, c3poMode, set
             borderRadius:8, padding:'9px 12px', fontSize:14,
             fontFamily:'monospace', color:'var(--gold)', letterSpacing:'0.05em',
           }}>
-            "hey c3po"
+            "hey jarvis"
           </div>
           <div style={{ fontSize:11, color:'#44445a', marginTop:5 }}>
             Say this followed by your question, or type it manually below.
@@ -227,11 +227,11 @@ function SettingsModal({ apiKey, setApiKey, provider, setProvider, c3poMode, set
 
         {/* C3PO Mode */}
         <div style={{ marginBottom:20 }}>
-          <label style={labelStyle}>C3PO Mode</label>
+          <label style={labelStyle}>Jarvis Mode</label>
           <div style={{ display:'flex', gap:8 }}>
             {[
-              { key:'universal', icon:'🌐', title:'Universal', desc:'Both people share one C3PO feed — answers sync across the room' },
-              { key:'separate',  icon:'🔒', title:'Separate',  desc:'Each person has their own private C3PO — answers stay local' },
+              { key:'universal', icon:'🌐', title:'Universal', desc:'Both people share one Jarvis feed — answers sync across the room' },
+              { key:'separate',  icon:'🔒', title:'Separate',  desc:'Each person has their own private Jarvis — answers stay local' },
             ].map(({ key, icon, title, desc }) => (
               <button key={key} onClick={() => setDraftMode(key)} style={{
                 flex:1, padding:'10px 12px', borderRadius:10, cursor:'pointer',
@@ -251,7 +251,7 @@ function SettingsModal({ apiKey, setApiKey, provider, setProvider, c3poMode, set
         <div style={{ marginBottom:24, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <div>
             <div style={{ fontSize:13, fontWeight:600, color:'#f0f0f5', marginBottom:2 }}>Auto Read-Aloud</div>
-            <div style={{ fontSize:11, color:'#44445a' }}>C3PO reads answers back using text-to-speech</div>
+            <div style={{ fontSize:11, color:'#44445a' }}>Jarvis reads answers back using text-to-speech</div>
           </div>
           <button
             onClick={() => setAutoSpeak(v => !v)}
@@ -533,7 +533,7 @@ export default function C3PO() {
         fetch('/api/presence', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ roomCode, userId: 'c3po', name: 'C3PO', action: 'answer', question, answer: data.answer, sources: data.sources || [], askedBy: myName }),
+          body: JSON.stringify({ roomCode, userId: 'c3po', name: 'Jarvis', action: 'answer', question, answer: data.answer, sources: data.sources || [], askedBy: myName }),
         }).catch(() => {})
       }
     } catch (err) {
@@ -590,7 +590,7 @@ export default function C3PO() {
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
           <MicOrb active={listening} flash={wakeFlash} />
           <div>
-            <div style={{ fontWeight:900, fontSize:20, color:'var(--gold)', letterSpacing:'0.05em' }}>C3PO</div>
+            <div style={{ fontWeight:900, fontSize:20, color:'var(--gold)', letterSpacing:'0.05em' }}>Jarvis</div>
             <div style={{ fontSize:11, color:'#44445a' }}>Live Stream AI Assistant</div>
           </div>
         </div>
@@ -623,7 +623,7 @@ export default function C3PO() {
             {listening ? '⏹ Stop' : '🎙 Start'}
           </button>
 
-          <button onClick={() => setShowTutorial(true)} style={{ ...hBtn, color:'var(--gold)', border:'1px solid rgba(255,215,0,0.25)' }} title="How to use C3PO">?</button>
+          <button onClick={() => setShowTutorial(true)} style={{ ...hBtn, color:'var(--gold)', border:'1px solid rgba(255,215,0,0.25)' }} title="How to use Jarvis">?</button>
           <button onClick={() => setShowSettings(true)} style={hBtn} title="Settings">⚙</button>
           <button onClick={() => navigate('/')} style={hBtn} title="Back to setup">←</button>
         </div>
@@ -660,7 +660,7 @@ export default function C3PO() {
         transition:'all .25s',
         flexShrink:0,
       }}>
-        {transcript || (listening ? 'Listening… say "hey c3po" followed by your question' : 'Press Start to begin listening')}
+        {transcript || (listening ? 'Listening… say "hey jarvis" followed by your question' : 'Press Start to begin listening')}
       </div>
 
       {/* ── Manual input ── */}
@@ -691,7 +691,7 @@ export default function C3PO() {
             <div style={{ fontSize:15, fontWeight:700, color:'#333350', marginBottom:8 }}>Ready to help</div>
             <div style={{ fontSize:13, color:'#2a2a35', lineHeight:1.9 }}>
               Start listening, then say<br />
-              <span style={{ color:'rgba(255,215,0,0.5)', fontWeight:700, fontSize:14 }}>"Hey C3PO, [your question]"</span>
+              <span style={{ color:'rgba(255,215,0,0.5)', fontWeight:700, fontSize:14 }}>"Hey Jarvis, [your question]"</span>
               <br />out loud near a mic
             </div>
           </div>

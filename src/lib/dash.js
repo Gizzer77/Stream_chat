@@ -70,7 +70,7 @@ export function loadCfg() {
     customSources: Array.isArray(c.customSources) ? c.customSources : [],
     c3poProvider: c.c3poProvider || 'anthropic',
     c3poApiKey:   c.c3poApiKey   || '',
-    c3poWakeWord: c.c3poWakeWord || 'hey c3po',
+    c3poWakeWord: 'hey jarvis', // fixed wake word
     c3poAutoSpeak: c.c3poAutoSpeak !== false,
     polyQ:        c.polyQ        || '',
     polyLimit:    c.polyLimit    || 12,

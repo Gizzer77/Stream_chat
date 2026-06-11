@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 
 // C-3PO assistant: voice wake-word listener + manual ask + read-aloud.
 // Driven by config: provider, apiKey, wakeWord, autoSpeak.
-export default function C3POWidget({ provider = 'anthropic', apiKey = '', wakeWord = 'hey c3po', autoSpeak = true, onOpenSettings }) {
+export default function C3POWidget({ provider = 'anthropic', apiKey = '', wakeWord = 'hey jarvis', autoSpeak = true, onOpenSettings }) {
   const [listening,  setListening]  = useState(false)
   const [transcript, setTranscript] = useState('')
   const [answers,    setAnswers]    = useState([])
@@ -23,7 +23,7 @@ export default function C3POWidget({ provider = 'anthropic', apiKey = '', wakeWo
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [answers])
 
   // ── Wake word helpers ───────────────────────────────────────────────────────
-  const wake = (wakeWord || 'hey c3po').toLowerCase().trim()
+  const wake = (wakeWord || 'hey jarvis').toLowerCase().trim()
   // tolerate spacing variants like "hey c 3 p o"
   const wakeVariants = [wake, wake.replace(/c3po/g, 'c3 p o'), wake.replace(/c3po/g, 'c 3 p o'), wake.replace(/\s+/g, ' ')]
   function containsWake(t) { const l = t.toLowerCase(); return wakeVariants.some(w => w && l.includes(w)) }
@@ -62,7 +62,7 @@ export default function C3POWidget({ provider = 'anthropic', apiKey = '', wakeWo
     setWakeFlash(true); setTimeout(() => setWakeFlash(false), 800)
     const id = Math.random().toString(36).slice(2)
     setAnswers(prev => [...prev.slice(-29), { id, question, answer: null, error: null, loading: true, ts: Date.now() }])
-    if (!apiKey) { setAnswers(prev => prev.map(a => a.id === id ? { ...a, loading: false, error: 'Add an AI API key in Settings → C-3PO.' } : a)); return }
+    if (!apiKey) { setAnswers(prev => prev.map(a => a.id === id ? { ...a, loading: false, error: 'Add an AI API key in Settings → Jarvis.' } : a)); return }
     try {
       const res = await fetch('/api/c3po', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'x-provider': provider }, body: JSON.stringify({ question, askedBy: 'streamer', platform: 'live stream' }) })
       const txt = await res.text()
@@ -96,7 +96,7 @@ export default function C3POWidget({ provider = 'anthropic', apiKey = '', wakeWo
 
       {!supported && <div style={{ flexShrink: 0, padding: '5px 10px', fontSize: 10.5, color: '#fbbf24', background: 'rgba(251,191,36,0.08)' }}>⚠ Voice needs Chrome or Edge. Typing still works.</div>}
       {micError && <div style={{ flexShrink: 0, padding: '5px 10px', fontSize: 10.5, color: '#f87171', background: 'rgba(239,68,68,0.08)' }}>⚠ {micError}</div>}
-      {!apiKey && <button onClick={onOpenSettings} style={{ margin: '8px 10px 0', background: 'rgba(255,215,0,0.1)', border: '1px solid rgba(255,215,0,0.3)', color: '#ffd700', borderRadius: 8, padding: '6px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>⚙ Add an AI API key to enable C-3PO →</button>}
+      {!apiKey && <button onClick={onOpenSettings} style={{ margin: '8px 10px 0', background: 'rgba(255,215,0,0.1)', border: '1px solid rgba(255,215,0,0.3)', color: '#ffd700', borderRadius: 8, padding: '6px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>⚙ Add an AI API key to enable Jarvis →</button>}
 
       {/* Live transcript */}
       <div style={{ flexShrink: 0, margin: '8px 10px 0', padding: '8px 11px', borderRadius: 9, fontSize: 12.5, lineHeight: 1.5, minHeight: 20,

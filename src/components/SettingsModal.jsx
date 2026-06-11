@@ -5,7 +5,7 @@ const TABS = [
   { key: 'accounts',   label: '👤 Accounts' },
   { key: 'room',       label: '🔗 Room' },
   { key: 'sources',    label: '💬 Chat Sources' },
-  { key: 'c3po',       label: '🤖 C-3PO' },
+  { key: 'c3po',       label: '🤖 Jarvis' },
   { key: 'polymarket', label: '📊 Polymarket' },
 ]
 
@@ -146,11 +146,14 @@ export default function SettingsModal({ cfg, room, onSave, onClose, initialTab =
               <div style={{ marginBottom: 16 }}>
                 <label style={labelStyle}>API Key</label>
                 <input type="password" value={draft.c3poApiKey} onChange={e => set('c3poApiKey', e.target.value)} placeholder="Paste your API key" style={inputStyle} />
-                <div style={{ fontSize: 11, color: '#8a8aa5', marginTop: 8 }}>Stored only in your browser. Needed for the C-3PO assistant to answer.</div>
+                <div style={{ fontSize: 11, color: '#8a8aa5', marginTop: 8 }}>Stored only in your browser. Needed for the Jarvis assistant to answer.</div>
               </div>
               <div style={{ marginBottom: 16 }}>
                 <label style={labelStyle}>Wake word</label>
-                <input value={draft.c3poWakeWord} onChange={e => set('c3poWakeWord', e.target.value)} placeholder="hey c3po" style={inputStyle} />
+                <div style={{ ...inputStyle, fontFamily: 'monospace', color: '#c084fc', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>"hey jarvis"</span><span style={{ fontSize: 10, color: '#55556a', fontWeight: 700 }}>🔒 fixed</span>
+                </div>
+                <div style={{ fontSize: 11, color: '#8a8aa5', marginTop: 8 }}>Say "Hey Jarvis" followed by your question while listening is on.</div>
                 <div style={{ fontSize: 11, color: '#8a8aa5', marginTop: 8 }}>Say this out loud followed by your question while listening is on.</div>
               </div>
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>

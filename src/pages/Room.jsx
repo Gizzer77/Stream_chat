@@ -90,7 +90,7 @@ function RoomTutorialModal({ onClose }) {
     { icon:'🎙', title:'Set up your room', body:'On the setup page, enter each streamer\'s name and their Twitch/Kick username. A room code is generated automatically. Share the link with your co-streamer so you both see the same combined chat.' },
     { icon:'🔗', title:'Share the room', body:'Click the Share button to copy your room link. Anyone with the link can join and see all the chats combined. You\'ll see who\'s connected in the top row.' },
     { icon:'🔒', title:'Lock the room', body:'Once both streamers are in, hit the Lock button to stop anyone else from joining. Locked rooms show a gate page to late arrivals.' },
-    { icon:'🤖', title:'C3PO AI assistant', body:'Click the C3PO button to open the AI assistant in a popup. It listens to your mic for the wake word "Hey C3PO" followed by a question — like "Hey C3PO, who won the game last night?" It searches the web and answers in seconds.' },
+    { icon:'🤖', title:'Jarvis AI assistant', body:'Click the Jarvis button to open the AI assistant in a popup. It listens to your mic for the wake word "Hey Jarvis" followed by a question — like "Hey Jarvis, who won the game last night?" It searches the web and answers in seconds.' },
     { icon:'⚙️', title:'Room settings', body:'The ⚙ gear button lets you change your display name, view streamer channels, and toggle the room lock — all without leaving the chat view.' },
   ]
   return (

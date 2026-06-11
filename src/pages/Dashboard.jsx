@@ -14,7 +14,7 @@ const PANEL_META = {
   chat:       { title: 'Combined Chat',      icon: '💬', accent: '#54c0ff', flexBasis: '1 1 340px', height: 440 },
   viewers:    { title: 'Viewer Counts',      icon: '👥', accent: '#22c55e', flexBasis: '1 1 300px', height: 320 },
   polymarket: { title: 'Polymarket',         icon: '📊', accent: '#3b82f6', flexBasis: '1 1 320px', height: 320 },
-  c3po:       { title: 'C-3PO Assistant',    icon: '🤖', accent: '#ffd700', flexBasis: '2 1 480px', height: 340 },
+  c3po:       { title: 'Jarvis Assistant',    icon: '🤖', accent: '#ffd700', flexBasis: '2 1 480px', height: 340 },
 }
 const PANEL_ORDER = ['stream', 'chat', 'polymarket', 'c3po']
 
