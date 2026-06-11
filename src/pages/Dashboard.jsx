@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { parseConfig, genCodeVerifier, genCodeChallenge, loadCfg, saveCfg, effectiveSources, dbg } from '../lib/dash'
-import MarketTicker from '../components/MarketTicker'
 import Panel        from '../components/Panel'
 import StreamPlayer from '../components/StreamPlayer'
 import CombinedChat from '../components/CombinedChat'
@@ -165,17 +164,16 @@ export default function Dashboard() {
   const chip = (color, bg, border, text) => (
     <span style={{ fontSize: 11, fontWeight: 700, color, background: bg, border: `1px solid ${border}`, borderRadius: 6, padding: '2px 8px' }}>{text}</span>
   )
-  const lightBtn = { background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: 7, padding: '4px 11px', fontSize: 11, color: '#f0f0f8', cursor: 'pointer', fontWeight: 700 }
+  const lightBtn = { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 9, padding: '5px 12px', fontSize: 11, color: '#dcdce8', cursor: 'pointer', fontWeight: 700, transition: 'all .15s' }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: '#07070e', color: '#eeeef5', fontFamily: "'Inter','Segoe UI',system-ui,sans-serif" }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: 'radial-gradient(ellipse 90% 60% at 50% -10%, rgba(145,71,255,0.06), transparent 60%), #08080f', color: '#eeeef5', fontFamily: "'Inter','Segoe UI',system-ui,sans-serif" }}>
       {settingsTab && <SettingsModal cfg={cfg} room={room} initialTab={settingsTab} onSave={persistCfg} onClose={() => setSettingsTab(null)} />}
 
-      <MarketTicker />
 
       {/* Top bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', background: 'rgba(10,10,22,0.95)', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 14, fontWeight: 900, background: 'linear-gradient(135deg,#9147ff,#54c0ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', flexShrink: 0 }}>🎛 Market Bubble</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px', background: 'linear-gradient(180deg,rgba(16,16,30,0.98),rgba(9,9,18,0.96))', borderBottom: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 2px 14px rgba(0,0,0,0.35)', flexShrink: 0, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 14, fontWeight: 900, letterSpacing: '0.01em', background: 'linear-gradient(135deg,#9147ff,#54c0ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', flexShrink: 0, marginRight: 4 }}>🎛 Market Bubble</span>
 
         {/* Connected accounts (persistent) */}
         <div style={{ display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>

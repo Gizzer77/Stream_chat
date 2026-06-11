@@ -35,10 +35,10 @@ export default function Polymarket({ defaultQuery = '', limit = 12 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ padding: '8px 10px', borderBottom: '1px solid rgba(255,255,255,0.05)', flexShrink: 0 }}>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <input value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearch()}
-            placeholder="Search prediction markets…"
-            style={{ flex: 1, background: '#0a0a0f', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '6px 10px', fontSize: 11, color: '#eeeef5', outline: 'none' }} />
+            placeholder="Search markets…"
+            style={{ flex: '1 1 90px', minWidth: 0, background: 'rgba(8,8,15,0.7)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '6px 10px', fontSize: 11, color: '#eeeef5', outline: 'none' }} />
           <button onClick={handleSearch} style={{ background: 'linear-gradient(135deg,#3b82f6,#1d4ed8)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>🔍</button>
           {searchQ && <button onClick={() => { setSearch(''); setSearchQ(''); setLoading(true) }} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 8, color: '#ccc', padding: '6px 10px', fontSize: 11, cursor: 'pointer' }}>✕</button>}
         </div>
