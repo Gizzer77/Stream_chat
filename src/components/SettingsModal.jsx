@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { parseSourceInput, PLAT } from '../lib/dash'
 
 const TABS = [
+  { key: 'accounts',   label: '👤 Accounts' },
   { key: 'room',       label: '🔗 Room' },
   { key: 'sources',    label: '💬 Chat Sources' },
   { key: 'c3po',       label: '🤖 C-3PO' },
@@ -60,6 +61,33 @@ export default function SettingsModal({ cfg, room, onSave, onClose, initialTab =
         </div>
 
         <div style={{ padding: '18px 22px', overflowY: 'auto', flex: 1 }}>
+          {tab === 'accounts' && (() => {
+            const accounts = [
+              { key:'twitch', label:'Twitch', color:'#9147ff', icon:'🟣', user: localStorage.getItem('twitch_username'), token: localStorage.getItem('twitch_token'), keys:['twitch_token','twitch_username'] },
+              { key:'x',      label:'X',      color:'#cbd5e1', icon:'✖', user: localStorage.getItem('x_username'),      token: localStorage.getItem('x_token'),      keys:['x_token','x_username','x_refresh_token'] },
+              { key:'kick',   label:'Kick',   color:'#53fc18', icon:'🟢', user: localStorage.getItem('kick_username'),   token: localStorage.getItem('kick_token'),   keys:['kick_token','kick_username','kick_refresh_token'] },
+            ]
+            const unlink = a => { if (window.confirm('Unlink ' + a.label + '? You can reconnect on the Setup page.')) { a.keys.forEach(k => localStorage.removeItem(k)); window.location.reload() } }
+            return (
+              <>
+                <div style={{ fontSize: 11, color: '#8a8aa5', marginBottom: 14, lineHeight: 1.6 }}>Your connected logins. Unlink one to clear its token, then reconnect it on the Setup page (handy if posting stops working — e.g. Kick needs a fresh login for chat permissions).</div>
+                {accounts.map(a => (
+                  <div key={a.key} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, background: a.token ? a.color + '12' : 'rgba(255,255,255,0.03)', border: `1px solid ${a.token ? a.color + '33' : 'rgba(255,255,255,0.08)'}`, borderRadius: 10, padding: '11px 14px' }}>
+                    <span style={{ fontSize: 16 }}>{a.icon}</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 10, fontWeight: 800, color: a.color, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{a.label}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: a.token ? '#eeeef5' : '#55556a' }}>{a.token ? '@' + (a.user || 'connected') : 'Not connected'}</div>
+                    </div>
+                    {a.token
+                      ? <button onClick={() => unlink(a)} style={{ background: 'rgba(239,68,68,0.14)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', borderRadius: 8, padding: '6px 13px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>Unlink</button>
+                      : <span style={{ fontSize: 11, color: '#55556a' }}>log in on Setup</span>}
+                  </div>
+                ))}
+                <button onClick={() => { window.location.href = '/' }} style={{ marginTop: 8, width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.14)', color: '#c8c8e0', borderRadius: 10, padding: '10px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>⬅ Go to Setup page (connect accounts)</button>
+              </>
+            )
+          })()}
+
           {tab === 'room' && (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, background: 'rgba(145,71,255,0.06)', border: '1px solid rgba(145,71,255,0.18)', borderRadius: 12, padding: '12px 16px' }}>
