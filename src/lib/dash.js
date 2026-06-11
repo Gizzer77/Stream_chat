@@ -59,6 +59,15 @@ export function parseSourceInput(raw) {
 // ── Config store ──────────────────────────────────────────────────────────────
 export const CFG_KEY = 'mb_cfg_v1'
 const DEFAULT_PANELS = { stream: true, chat: true, viewers: true, polymarket: true, c3po: true }
+// Default 4x4 grid arrangement (x,y = top-left cell 0-indexed; w,h = cell span)
+export const GRID = { cols: 4, rows: 4 }
+export const DEFAULT_LAYOUT = {
+  stream:     { x: 0, y: 0, w: 2, h: 2 },
+  chat:       { x: 2, y: 0, w: 2, h: 4 },
+  polymarket: { x: 0, y: 2, w: 2, h: 1 },
+  c3po:       { x: 0, y: 3, w: 1, h: 1 },
+  viewers:    { x: 1, y: 3, w: 1, h: 1 },
+}
 
 export function loadCfg() {
   let c = {}
@@ -75,6 +84,7 @@ export function loadCfg() {
     polyQ:        c.polyQ        || '',
     polyLimit:    c.polyLimit    || 12,
     panels:       { ...DEFAULT_PANELS, ...(c.panels || {}) },
+    layout:       { ...DEFAULT_LAYOUT, ...(c.layout || {}) },
   }
 }
 export function saveCfg(c) {

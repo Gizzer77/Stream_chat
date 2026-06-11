@@ -1,21 +1,23 @@
 import { useState, useEffect } from 'react'
-import { parseConfig, genCodeVerifier, genCodeChallenge, loadCfg, saveCfg, effectiveSources, dbg } from '../lib/dash'
+import { parseConfig, genCodeVerifier, genCodeChallenge, loadCfg, saveCfg, effectiveSources, DEFAULT_LAYOUT, dbg } from '../lib/dash'
 import Panel        from '../components/Panel'
+import GridLayout   from '../components/GridLayout'
 import StreamPlayer from '../components/StreamPlayer'
 import CombinedChat from '../components/CombinedChat'
 import ViewerBar    from '../components/ViewerBar'
+import ViewerPanel  from '../components/ViewerPanel'
 import Polymarket   from '../components/Polymarket'
 import C3POWidget   from '../components/C3POWidget'
 import SettingsModal from '../components/SettingsModal'
 
 const PANEL_META = {
-  stream:     { title: 'Live Stream',        icon: '📺', accent: '#9147ff', flexBasis: '2 1 480px', height: 440 },
-  chat:       { title: 'Combined Chat',      icon: '💬', accent: '#54c0ff', flexBasis: '1 1 340px', height: 440 },
-  viewers:    { title: 'Viewer Counts',      icon: '👥', accent: '#22c55e', flexBasis: '1 1 300px', height: 320 },
-  polymarket: { title: 'Polymarket',         icon: '📊', accent: '#3b82f6', flexBasis: '1 1 320px', height: 320 },
-  c3po:       { title: 'Jarvis Assistant',    icon: '🤖', accent: '#ffd700', flexBasis: '2 1 480px', height: 340 },
+  stream:     { title: 'Live Stream',        icon: '📺', accent: '#8b7fb5', flexBasis: '2 1 480px', height: 440 },
+  chat:       { title: 'Combined Chat',      icon: '💬', accent: '#7fa8c4', flexBasis: '1 1 340px', height: 440 },
+  viewers:    { title: 'Viewer Counts',      icon: '👥', accent: '#6fae8a', flexBasis: '1 1 300px', height: 320 },
+  polymarket: { title: 'Polymarket',         icon: '📊', accent: '#7691c0', flexBasis: '1 1 320px', height: 320 },
+  c3po:       { title: 'Jarvis Assistant',    icon: '🤖', accent: '#c9b878', flexBasis: '2 1 480px', height: 340 },
 }
-const PANEL_ORDER = ['stream', 'chat', 'polymarket', 'c3po']
+const PANEL_ORDER = ['stream', 'chat', 'polymarket', 'c3po', 'viewers']
 
 export default function Dashboard() {
   const config    = parseConfig()
@@ -156,6 +158,7 @@ export default function Dashboard() {
       case 'stream':     return <StreamPlayer sources={sources} />
       case 'chat':       return <CombinedChat sources={sources} twitchAuth={twitchAuth} xAuth={xAuth} kickAuth={kickAuth} roomCode={roomCode} onOpenSettings={() => setSettingsTab('sources')} />
       case 'polymarket': return <Polymarket defaultQuery={cfg.polyQ} limit={cfg.polyLimit} />
+      case 'viewers':    return <ViewerPanel sources={sources} />
       case 'c3po':       return <C3POWidget provider={cfg.c3poProvider} apiKey={cfg.c3poApiKey} wakeWord={cfg.c3poWakeWord} autoSpeak={cfg.c3poAutoSpeak} onOpenSettings={() => setSettingsTab('c3po')} />
       default: return null
     }
@@ -167,13 +170,13 @@ export default function Dashboard() {
   const lightBtn = { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 9, padding: '5px 12px', fontSize: 11, color: '#dcdce8', cursor: 'pointer', fontWeight: 700, transition: 'all .15s' }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: 'radial-gradient(ellipse 90% 60% at 50% -10%, rgba(145,71,255,0.06), transparent 60%), #08080f', color: '#eeeef5', fontFamily: "'Inter','Segoe UI',system-ui,sans-serif" }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: 'radial-gradient(ellipse 90% 60% at 50% -10%, rgba(130,118,180,0.045), transparent 60%), #09090f', color: '#eeeef5', fontFamily: "'Inter','Segoe UI',system-ui,sans-serif" }}>
       {settingsTab && <SettingsModal cfg={cfg} room={room} initialTab={settingsTab} onSave={persistCfg} onClose={() => setSettingsTab(null)} />}
 
 
       {/* Top bar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px', background: 'linear-gradient(180deg,rgba(16,16,30,0.98),rgba(9,9,18,0.96))', borderBottom: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 2px 14px rgba(0,0,0,0.35)', flexShrink: 0, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 14, fontWeight: 900, letterSpacing: '0.01em', background: 'linear-gradient(135deg,#9147ff,#54c0ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', flexShrink: 0, marginRight: 4 }}>🎛 Market Bubble</span>
+        <span style={{ fontSize: 14, fontWeight: 900, letterSpacing: '0.01em', background: 'linear-gradient(135deg,#9d92c4,#84aac2)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', flexShrink: 0, marginRight: 4 }}>🎛 Market Bubble</span>
 
         {/* Connected accounts (persistent) */}
         <div style={{ display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -198,29 +201,27 @@ export default function Dashboard() {
         <button onClick={() => setSettingsTab('room')} style={lightBtn}>🔗 Room {roomCode ? `· ${roomCode}` : ''}</button>
         <button onClick={() => setSettingsTab('accounts')} style={lightBtn}>👤 Accounts</button>
         <button onClick={() => setSettingsTab('sources')} style={lightBtn}>⚙ Settings</button>
-        <button onClick={() => persistCfg({ ...cfg, panels: { stream: true, chat: true, viewers: true, polymarket: true, c3po: true } })} style={lightBtn}>Reset panels</button>
+        <button onClick={() => persistCfg({ ...cfg, panels: { stream: true, chat: true, viewers: true, polymarket: true, c3po: true }, layout: { ...DEFAULT_LAYOUT } })} style={lightBtn}>Reset layout</button>
         <button onClick={() => { window.location.href = '/' }} style={{ ...lightBtn, color: '#c084fc', borderColor: 'rgba(145,71,255,0.4)' }}>⬅ Back to Setup</button>
       </div>
 
       {/* Layout: Polymarket = thin glanceable strip on the left · center = stream
           on top with C-3PO filling all the way down · combined chat (bigger) on
           the right. Hide any panel with its ✕ and restore it from the top bar. */}
-      <div style={{ flex: 1, display: 'flex', gap: 16, padding: 16, overflow: 'hidden', minHeight: 0 }}>
-        {show('polymarket') && (
-          <div style={{ width: 'clamp(150px, 15%, 210px)', flexShrink: 0, height: '100%' }}>{P('polymarket')}</div>
-        )}
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {show('stream') && <div style={{ height: 'clamp(220px, 34vh, 420px)', flexShrink: 0 }}>{P('stream')}</div>}
-          {show('c3po')   && <div style={{ flex: 1, minHeight: 150 }}>{P('c3po')}</div>}
-          {!show('stream') && !show('c3po') && <div style={{ flex: 1 }} />}
-        </div>
-        {show('chat') && (
-          <div style={{ width: 'clamp(420px, 52%, 720px)', flexShrink: 0, height: '100%' }}>{P('chat')}</div>
-        )}
-        {visiblePanels.length === 0 && (
-          <div style={{ flex: 1, textAlign: 'center', color: '#55556a', fontSize: 13, padding: 40 }}>All panels hidden — add them back from the top bar.</div>
-        )}
-      </div>
+      {visiblePanels.length === 0 ? (
+        <div style={{ flex: 1, textAlign: 'center', color: '#55556a', fontSize: 13, padding: 40 }}>All panels hidden — add them back from the top bar.</div>
+      ) : (
+        <GridLayout
+          items={visiblePanels.map(id => ({ id }))}
+          layout={cfg.layout}
+          onLayout={next => persistCfg({ ...cfg, layout: next })}
+          renderItem={(id, dragHandle) => (
+            <Panel title={PANEL_META[id].title} icon={PANEL_META[id].icon} accent={PANEL_META[id].accent} dragHandle={dragHandle} onHide={() => setPanel(id, false)}>
+              {renderPanel(id)}
+            </Panel>
+          )}
+        />
+      )}
 
       <style>{`
         @keyframes tickerScroll { from { transform: translateX(0) } to { transform: translateX(-33.333%) } }
