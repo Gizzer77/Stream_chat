@@ -1,6 +1,7 @@
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'
+import { Analytics } from '@vercel/analytics/react'
 import './index.css'
 
 // NOTE: StrictMode intentionally removed. In dev it double-invokes effects,
@@ -10,5 +11,6 @@ import './index.css'
 ReactDOM.createRoot(document.getElementById('root')).render(
   <BrowserRouter>
     <App />
+    <Analytics />
   </BrowserRouter>
 )
